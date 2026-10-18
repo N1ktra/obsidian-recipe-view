@@ -8,7 +8,7 @@
 	import RecipeCardTwoColumn from "./RecipeCardTwoColumn.svelte";
 	import RecipeCardSplitSteps from "./RecipeCardSplitSteps.svelte";
 	import RecipeCardOneColumn from "./RecipeCardOneColumn.svelte";
-	import { ParsedRecipe, ParsedRecipeComponent } from "./parsing";
+	import { ParsedRecipe } from "./parsing";
 
 	import { get } from "svelte/store";
 
@@ -53,7 +53,7 @@
 
 	// Recipe scaling - initialize with baseServings from frontmatter (default: 1)
 	let lastBaseServings: number | null = null;
-	let scaleNum: number | null = extractBaseServings(
+	let scaleNum: number = extractBaseServings(
 		metadata?.frontmatter,
 		plugin?.settings?.servingsProperty || "servings"
 	);
@@ -70,7 +70,8 @@
 	}
 
 	// Determining the recipe format
-	let containerWidth: number;
+	let containerWidth: number =
+		typeof window !== "undefined" ? window.innerWidth : 800;
 	$: isBelowSingleColumnWidth =
 		!containerWidth ||
 		containerWidth < plugin.settings.singleColumnMaxWidth;
@@ -81,14 +82,6 @@
 	$: twoColumnMainComponents =
 		parsedRecipe?.sections.map(({ mainComponents }) => mainComponents) ||
 		[];
-	$: singleColumnSections = parsedRecipe?.sections.map((s) =>
-		s.sideComponents
-			.concat(s.mainComponents)
-			.sort(
-				(a: ParsedRecipeComponent, b: ParsedRecipeComponent) =>
-					a.origIndex - b.origIndex
-			)
-	);
 
 	// DOM searching and manipulating keyboard shortcuts
 	let container: HTMLDivElement;
@@ -186,7 +179,10 @@
 	role="document"
 >
 	{#if isBelowSingleColumnWidth != false || twoColumnSideComponents.length == 0 || twoColumnMainComponents.flat().length == 0}
-		<RecipeCardOneColumn sections={singleColumnSections}>
+		<RecipeCardOneColumn
+			sideColumnComponents={twoColumnSideComponents}
+			mainColumnSections={twoColumnMainComponents}
+		>
 			<ScaleSelector
 				slot="scaleselector"
 				bind:scale={qtyScale}

@@ -1,5 +1,7 @@
 export const TIMER_REGEX = /@timer\{\s*([^}|]+?)\s*(?:\|\s*([^}]+?)\s*)?\}/g;
 
+export type TimerTimeFormat = "de" | "en" | "compact" | "minutes";
+
 export interface TimerMatch {
     index: number;
     length: number;
@@ -10,6 +12,7 @@ export interface TimerMatch {
 export interface TimerSettings {
     timerShortcutName: string;
     timerUrlTemplate: string;
+    timerTimeFormat?: TimerTimeFormat;
 }
 
 /**
@@ -26,6 +29,8 @@ export function matchTimers(str: string): Array<TimerMatch> {
 
 /**
  * Build the iOS Shortcuts URL for a timer.
+ * Note: Always passes the exact numeric minutes string to `text=<MINUTEN>`,
+ * regardless of how the visible button label formats hours/minutes.
  * Default URL schema:
  * shortcuts://run-shortcut?name=<SHORTCUT_NAME>&input=text&text=<MINUTEN>[|<URL_ENCODED_LABEL>]
  */
@@ -58,15 +63,74 @@ export function buildTimerUrl(
 }
 
 /**
- * Format the visible label of a timer button, e.g. "⏱ 30 Min (Teig ruhen)".
+ * Format a duration in minutes into a human-readable string.
+ * Converts durations >= 60 minutes into hours and minutes unless format is "minutes".
  */
-export function formatTimerButtonText(minutes: string, label?: string | null): string {
+export function formatDurationText(
+    minutes: string,
+    format: TimerTimeFormat = "de"
+): string {
     const cleanMinutes = minutes.trim();
+    const num = parseFloat(cleanMinutes.replace(",", "."));
+
+    if (isNaN(num) || num < 0 || format === "minutes") {
+        return `${cleanMinutes} Min`;
+    }
+
+    if (num < 60) {
+        switch (format) {
+            case "en":
+                return `${cleanMinutes} min`;
+            case "compact":
+                return `${cleanMinutes}m`;
+            case "de":
+            default:
+                return `${cleanMinutes} Min`;
+        }
+    }
+
+    const totalMinutes = Math.round(num);
+    const hours = Math.floor(totalMinutes / 60);
+    const remMinutes = totalMinutes % 60;
+
+    switch (format) {
+        case "en": {
+            const hrUnit = hours === 1 ? "hr" : "hrs";
+            return remMinutes > 0
+                ? `${hours} ${hrUnit} ${remMinutes} min`
+                : `${hours} ${hrUnit}`;
+        }
+        case "compact": {
+            return remMinutes > 0
+                ? `${hours}h ${remMinutes}m`
+                : `${hours}h`;
+        }
+        case "de":
+        default: {
+            return remMinutes > 0
+                ? `${hours} Std. ${remMinutes} Min`
+                : `${hours} Std.`;
+        }
+    }
+}
+
+/**
+ * Format the visible label of a timer button, e.g.
+ * - "⏱ 30 Min (Teig ruhen)"
+ * - "⏱ 1 Std. ( Gehen lassen )"
+ * - "⏱ 1 Std. 30 Min (Schmoren)"
+ */
+export function formatTimerButtonText(
+    minutes: string,
+    label?: string | null,
+    format: TimerTimeFormat = "de"
+): string {
+    const durationText = formatDurationText(minutes, format);
     const cleanLabel = label?.trim();
     if (cleanLabel) {
-        return `⏱ ${cleanMinutes} Min (${cleanLabel})`;
+        return `⏱ ${durationText} (${cleanLabel})`;
     }
-    return `⏱ ${cleanMinutes} Min`;
+    return `⏱ ${durationText}`;
 }
 
 /**
@@ -117,7 +181,11 @@ export function parseForTimers(node: Node, settings: TimerSettings): void {
                 settings.timerShortcutName,
                 settings.timerUrlTemplate
             );
-            const buttonText = formatTimerButtonText(match.minutes, match.label);
+            const buttonText = formatTimerButtonText(
+                match.minutes,
+                match.label,
+                settings.timerTimeFormat || "de"
+            );
 
             const timerLink = document.createElement("a");
             timerLink.className = "recipe-timer-btn";

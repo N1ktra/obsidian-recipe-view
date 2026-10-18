@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { matchTimers, buildTimerUrl, formatTimerButtonText } from './timers';
+import { matchTimers, buildTimerUrl, formatTimerButtonText, formatDurationText } from './timers';
 
 describe('matching @timer{...} syntax', () => {
     test('matches timer with minutes only', () => {
@@ -57,6 +57,15 @@ describe('building timer URLs', () => {
         );
     });
 
+    test('retains exact numeric minutes in URL even for >= 60 minutes', () => {
+        expect(buildTimerUrl('120', 'Schmoren', 'StartTimer')).toBe(
+            'shortcuts://run-shortcut?name=StartTimer&input=text&text=120|Schmoren'
+        );
+        expect(buildTimerUrl('90', null, 'StartTimer')).toBe(
+            'shortcuts://run-shortcut?name=StartTimer&input=text&text=90'
+        );
+    });
+
     test('supports custom shortcut name and custom URL template', () => {
         expect(
             buildTimerUrl(
@@ -80,12 +89,30 @@ describe('building timer URLs', () => {
     });
 });
 
-describe('formatting timer button text', () => {
-    test('formats minutes without label', () => {
+describe('formatting timer button text & smart durations', () => {
+    test('formats durations under 60 minutes unchanged', () => {
         expect(formatTimerButtonText('30', null)).toBe('⏱ 30 Min');
+        expect(formatTimerButtonText('30', 'Teig ruhen')).toBe('⏱ 30 Min (Teig ruhen)');
+        expect(formatTimerButtonText('45', null, 'en')).toBe('⏱ 45 min');
+        expect(formatTimerButtonText('10', null, 'compact')).toBe('⏱ 10m');
     });
 
-    test('formats minutes with label', () => {
-        expect(formatTimerButtonText('30', 'Teig ruhen')).toBe('⏱ 30 Min (Teig ruhen)');
+    test('formats exact hours >= 60 minutes', () => {
+        expect(formatTimerButtonText('60', null, 'de')).toBe('⏱ 1 Std.');
+        expect(formatTimerButtonText('120', 'Gehen lassen', 'de')).toBe(
+            '⏱ 2 Std. (Gehen lassen)'
+        );
+        expect(formatTimerButtonText('60', null, 'en')).toBe('⏱ 1 hr');
+        expect(formatTimerButtonText('120', null, 'en')).toBe('⏱ 2 hrs');
+        expect(formatTimerButtonText('120', null, 'compact')).toBe('⏱ 2h');
+    });
+
+    test('formats mixed hours and minutes >= 60 minutes', () => {
+        expect(formatTimerButtonText('90', null, 'de')).toBe('⏱ 1 Std. 30 Min');
+        expect(formatTimerButtonText('90', 'Ruhen', 'de')).toBe('⏱ 1 Std. 30 Min (Ruhen)');
+        expect(formatTimerButtonText('90', null, 'en')).toBe('⏱ 1 hr 30 min');
+        expect(formatTimerButtonText('150', null, 'en')).toBe('⏱ 2 hrs 30 min');
+        expect(formatTimerButtonText('90', null, 'compact')).toBe('⏱ 1h 30m');
+        expect(formatDurationText('90', 'minutes')).toBe('90 Min');
     });
 });

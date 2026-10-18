@@ -1,11 +1,19 @@
 <script lang="ts">
 	import { ParsedRecipeComponent } from "./parsing";
+	import store from "./store";
+	import RecipeViewPlugin from "./main";
+	import { get } from "svelte/store";
+
 	export let sideColumnComponents: Array<ParsedRecipeComponent>;
 	export let mainColumnSections: Array<Array<ParsedRecipeComponent>>;
+
+	let plugin: RecipeViewPlugin = get(store.plugin);
+	store.plugin.subscribe((p) => (plugin = p));
+	$: styleIngredientBox = plugin?.settings?.styleIngredientBox ?? true;
 </script>
 
 <div class="recipe-card two-column">
-	<div class="column column-side">
+	<div class="column column-side" class:ingredient-box={styleIngredientBox}>
 		<slot name="scaleselector" />
 		{#each sideColumnComponents as c}
 			<svelte:component this={c.type} {...c.props} />
@@ -48,6 +56,26 @@
 		flex-basis: calc(var(--file-line-width, 700px) / 2);
 		flex-grow: 0;
 		flex-shrink: 1;
+	}
+
+	.column-side.ingredient-box {
+		background-color: var(--background-secondary);
+		padding: var(--size-4-4);
+		border-radius: var(--radius-m);
+		box-sizing: border-box;
+	}
+
+	.column-side.ingredient-box :global(.scale-selector) {
+		background-color: var(--background-primary);
+	}
+
+	.column-side :global(.recipe-leaf:is(h1, h2, h3, h4, h5, h6)) {
+		margin-block-start: var(--size-4-2);
+		margin-block-end: var(--size-4-2);
+	}
+
+	.column-side :global(ul) {
+		margin-block: var(--size-4-1) 0;
 	}
 
 	.column-main {

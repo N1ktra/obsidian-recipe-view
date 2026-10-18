@@ -33,13 +33,6 @@ settings:
   --selected-step-alpha: 0.3;
 }
 
-.workspace-leaf-content[data-type="recipe-view"] .view-content {
-  padding: var(--file-margins);
-  font-size: var(--font-text-size);
-  line-height: var(--line-height-tight);
-  overflow-y: auto;
-}
-
 /* Native Reading View integration */
 .markdown-preview-view.is-recipe-view-active > .markdown-preview-sizer {
   display: none !important;
@@ -83,18 +76,33 @@ body.is-mobile .recipe-view-reading-container {
   cursor: pointer;
   white-space: nowrap;
   vertical-align: baseline;
-  transition: background-color 0.15s ease, border-color 0.15s ease;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 0.15s ease, border-color 0.15s ease,
+    transform 0.1s ease, box-shadow 0.15s ease;
 }
 
-.recipe-timer-btn:hover,
+.recipe-timer-btn:hover {
+  background-color: hsla(
+    var(--accent-h),
+    var(--accent-s),
+    var(--accent-l),
+    0.26
+  );
+  border-color: var(--interactive-accent);
+  color: var(--text-accent-hover) !important;
+  text-decoration: none !important;
+}
+
 .recipe-timer-btn:active {
   background-color: hsla(
     var(--accent-h),
     var(--accent-s),
     var(--accent-l),
-    0.28
+    0.34
   );
   border-color: var(--interactive-accent);
   color: var(--text-accent-hover) !important;
+  transform: scale(0.98);
   text-decoration: none !important;
 }

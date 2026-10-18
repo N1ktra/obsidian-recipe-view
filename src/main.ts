@@ -7,16 +7,13 @@ import {
 	Setting,
 	TFile,
 	WorkspaceLeaf,
-	addIcon,
 } from 'obsidian';
 
-import { RecipeView, VIEW_TYPE_RECIPE } from './recipe-view';
 import RecipeCard from './RecipeCard.svelte';
 import { parseRecipeMarkdown } from './parsing';
 import { isRecipeNote } from './detection';
 import store from './store';
-import { WHISK_SVG } from './whisk';
-import { parseForTimers } from './timers';
+import { parseForTimers, TimerTimeFormat } from './timers';
 
 export interface RecipeViewPluginSettings {
 	sideColumnRegex: string;
@@ -24,14 +21,15 @@ export interface RecipeViewPluginSettings {
 	renderUnicodeFractions: boolean;
 	singleColumnMaxWidth: number;
 	showBulletsTwoColumn: boolean;
+	styleIngredientBox: boolean;
 	coverProperty: string;
 	servingsProperty: string;
 	timerShortcutName: string;
 	timerUrlTemplate: string;
+	timerTimeFormat: TimerTimeFormat;
 	autoRenderReadingView: boolean;
 	recipeFilterKey: string;
 	recipeFilterValue: string;
-	showRibbonIcon: boolean;
 }
 
 const DEFAULT_SETTINGS: RecipeViewPluginSettings = {
@@ -40,14 +38,15 @@ const DEFAULT_SETTINGS: RecipeViewPluginSettings = {
 	renderUnicodeFractions: true,
 	singleColumnMaxWidth: 600,
 	showBulletsTwoColumn: false,
+	styleIngredientBox: true,
 	coverProperty: 'cover',
 	servingsProperty: 'servings',
 	timerShortcutName: 'StartTimer',
 	timerUrlTemplate: '',
+	timerTimeFormat: 'de',
 	autoRenderReadingView: true,
 	recipeFilterKey: 'type',
 	recipeFilterValue: 'rezept',
-	showRibbonIcon: false,
 };
 
 interface MountedReadingRecipe {
@@ -60,25 +59,13 @@ interface MountedReadingRecipe {
 
 export default class RecipeViewPlugin extends Plugin {
 	settings: RecipeViewPluginSettings = DEFAULT_SETTINGS;
-	ribbonIconEl: HTMLElement | null = null;
 	private mountedReadingViews = new Map<MarkdownView, MountedReadingRecipe>();
 
 	async onload() {
 		await this.loadSettings();
 
-		this.registerView(VIEW_TYPE_RECIPE, (leaf) => new RecipeView(leaf, this));
-
 		this.registerMarkdownPostProcessor((el) => {
 			parseForTimers(el, this.settings);
-		});
-
-		addIcon("recipe-whisk", WHISK_SVG);
-		this.updateRibbonIcon();
-
-		this.addCommand({
-			id: "toggle-recipe-view",
-			name: "Toggle between recipe card and markdown",
-			checkCallback: (c) => this.toggleView(c),
 		});
 
 		// Automatically render Recipe Cards inside native Reading View when a note matches recipe criteria
@@ -103,7 +90,6 @@ export default class RecipeViewPlugin extends Plugin {
 			})
 		);
 
-		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new RecipeViewSettingsTab(this.app, this));
 
 		// Load style settings variables
@@ -118,27 +104,6 @@ export default class RecipeViewPlugin extends Plugin {
 
 	onunload() {
 		this.cleanupAllReadingViews();
-		if (this.ribbonIconEl) {
-			this.ribbonIconEl.remove();
-			this.ribbonIconEl = null;
-		}
-	}
-
-	updateRibbonIcon() {
-		if (this.settings.showRibbonIcon) {
-			if (!this.ribbonIconEl) {
-				this.ribbonIconEl = this.addRibbonIcon(
-					"recipe-whisk",
-					"Toggle recipe view",
-					() => {
-						this.toggleView(false);
-					}
-				);
-			}
-		} else if (this.ribbonIconEl) {
-			this.ribbonIconEl.remove();
-			this.ribbonIconEl = null;
-		}
 	}
 
 	onMetadataChanged(changedFile: TFile) {
@@ -333,43 +298,6 @@ export default class RecipeViewPlugin extends Plugin {
 		this.mountedReadingViews.clear();
 	}
 
-	toggleView(checking: boolean) {
-		const activeLeaf = this.app.workspace.getMostRecentLeaf();
-
-		if (activeLeaf?.getViewState().type == "markdown") {
-			if (!checking) {
-				this.setRecipeView(activeLeaf!);
-			}
-		} else if (activeLeaf?.getViewState().type == VIEW_TYPE_RECIPE) {
-			if (!checking) {
-				this.setMarkdownView(activeLeaf!);
-			}
-		} else {
-			return false;
-		}
-		return true;
-	}
-
-	async setRecipeView(leaf: WorkspaceLeaf) {
-		await leaf.setViewState({
-			type: VIEW_TYPE_RECIPE,
-			state: leaf.view.getState(),
-			active: true,
-			// @ts-ignore
-			popstate: true,
-		});
-	}
-
-	async setMarkdownView(leaf: WorkspaceLeaf) {
-		await leaf.setViewState({
-			type: "markdown",
-			state: leaf.view.getState(),
-			active: true,
-			// @ts-ignore
-			popstate: true,
-		});
-	}
-
 	async loadSettings() {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
 	}
@@ -435,21 +363,6 @@ class RecipeViewSettingsTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.recipeFilterValue)
 					.onChange(async (value) => {
 						this.plugin.settings.recipeFilterValue = value.trim();
-						await this.plugin.saveSettings();
-					})
-			);
-
-		new Setting(containerEl)
-			.setName('Show "Toggle recipe view" ribbon icon')
-			.setDesc(
-				"Optional: Show the dedicated whisk icon in the left ribbon to manually toggle the standalone Recipe View."
-			)
-			.addToggle((toggle) =>
-				toggle
-					.setValue(this.plugin.settings.showRibbonIcon)
-					.onChange(async (value) => {
-						this.plugin.settings.showRibbonIcon = value;
-						this.plugin.updateRibbonIcon();
 						await this.plugin.saveSettings();
 					})
 			);
@@ -555,9 +468,42 @@ class RecipeViewSettingsTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
+			.setName("Timer display format")
+			.setDesc(
+				"Choose how durations >= 60 minutes are formatted on timer buttons (the iOS Shortcut always receives the exact numeric minutes)."
+			)
+			.addDropdown((dropdown) =>
+				dropdown
+					.addOption("de", "Deutsch (30 Min / 1 Std. / 1 Std. 30 Min)")
+					.addOption("en", "English (30 min / 1 hr / 1 hr 30 min)")
+					.addOption("compact", "Compact (30m / 1h / 1h 30m)")
+					.addOption("minutes", "Minutes only (90 Min / 120 Min)")
+					.setValue(this.plugin.settings.timerTimeFormat)
+					.onChange(async (value) => {
+						this.plugin.settings.timerTimeFormat =
+							value as TimerTimeFormat;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(containerEl)
 			.setName("Recipe card appearance")
 			.setDesc("More options are available using the style settings plugin.")
 			.setHeading();
+
+		new Setting(containerEl)
+			.setName("Style ingredients column as card box")
+			.setDesc(
+				"Render the side ingredients column with a subtle card background and rounded corners to visually separate it from the directions."
+			)
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.styleIngredientBox)
+					.onChange(async (value) => {
+						this.plugin.settings.styleIngredientBox = value;
+						await this.plugin.saveSettings();
+					})
+			);
 
 		new Setting(containerEl)
 			.setName("Render fractions in quantities as unicode")
