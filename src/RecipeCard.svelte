@@ -5,9 +5,7 @@
 	import store from "./store";
 	import ScaleSelector from "./ScaleSelector.svelte";
 	import Fraction from "fraction.js";
-	import RecipeCardTwoColumn from "./RecipeCardTwoColumn.svelte";
 	import RecipeCardSplitSteps from "./RecipeCardSplitSteps.svelte";
-	import RecipeCardOneColumn from "./RecipeCardOneColumn.svelte";
 	import { ParsedRecipe } from "./parsing";
 
 	import { get } from "svelte/store";
@@ -69,29 +67,12 @@
 		parsedRecipe?.qtyScaleStore.set(qtyScale);
 	}
 
-	// Determining the recipe format
+	// Determining responsive single-column breakpoint
 	let containerWidth: number =
 		typeof window !== "undefined" ? window.innerWidth : 800;
 	$: isBelowSingleColumnWidth =
 		!containerWidth ||
 		containerWidth < plugin.settings.singleColumnMaxWidth;
-	$: twoColumnSideComponents =
-		parsedRecipe?.sections.flatMap(
-			({ sideComponents }) => sideComponents
-		) || [];
-	$: twoColumnMainComponents =
-		parsedRecipe?.sections.map(({ mainComponents }) => mainComponents) ||
-		[];
-	$: isSplitStepsRecipe =
-		twoColumnSideComponents.length > 0 &&
-		twoColumnMainComponents.flat().length > 0 &&
-		((parsedRecipe?.sections.length ?? 0) > 3 ||
-			(parsedRecipe?.sections.filter(
-				(s) =>
-					!s.containsHeader &&
-					s.sideComponents.length > 0 &&
-					s.mainComponents.length > 0
-			).length ?? 0) >= 2);
 
 	// DOM searching and manipulating keyboard shortcuts
 	let container: HTMLDivElement;
@@ -188,76 +169,30 @@
 	on:keypress={handleKeypress}
 	role="document"
 >
-	{#if isSplitStepsRecipe}
-		<RecipeCardSplitSteps
-			sections={parsedRecipe?.sections}
+	<RecipeCardSplitSteps
+		globalIngredients={parsedRecipe?.globalIngredients || []}
+		steps={parsedRecipe?.steps || []}
+		sections={parsedRecipe?.sections || []}
+		singleColumn={Boolean(isBelowSingleColumnWidth)}
+	>
+		<ScaleSelector
+			slot="scaleselector"
+			bind:scale={qtyScale}
+			bind:scaleNum
+			{baseServings}
+		/>
+
+		<RecipeCardTitleBlock
+			slot="titleblock"
+			{title}
+			{frontmatter}
+			thumbnailPath={parsedRecipe?.thumbnailPath}
 			singleColumn={Boolean(isBelowSingleColumnWidth)}
-		>
-			<ScaleSelector
-				slot="scaleselector"
-				bind:scale={qtyScale}
-				bind:scaleNum
-				{baseServings}
-			/>
-
-			<RecipeCardTitleBlock
-				slot="titleblock"
-				{title}
-				{frontmatter}
-				thumbnailPath={parsedRecipe?.thumbnailPath}
-				singleColumn={Boolean(isBelowSingleColumnWidth)}
-				app={plugin.app}
-				{file}
-				{view}
-			/>
-		</RecipeCardSplitSteps>
-	{:else if isBelowSingleColumnWidth != false || twoColumnSideComponents.length == 0 || twoColumnMainComponents.flat().length == 0}
-		<RecipeCardOneColumn
-			sideColumnComponents={twoColumnSideComponents}
-			mainColumnSections={twoColumnMainComponents}
-		>
-			<ScaleSelector
-				slot="scaleselector"
-				bind:scale={qtyScale}
-				bind:scaleNum
-				{baseServings}
-			/>
-
-			<RecipeCardTitleBlock
-				slot="titleblock"
-				{title}
-				{frontmatter}
-				thumbnailPath={parsedRecipe?.thumbnailPath}
-				singleColumn={true}
-				app={plugin.app}
-				{file}
-				{view}
-			/>
-		</RecipeCardOneColumn>
-	{:else}
-		<RecipeCardTwoColumn
-			sideColumnComponents={twoColumnSideComponents}
-			mainColumnSections={twoColumnMainComponents}
-		>
-			<ScaleSelector
-				slot="scaleselector"
-				bind:scale={qtyScale}
-				bind:scaleNum
-				{baseServings}
-			/>
-
-			<RecipeCardTitleBlock
-				slot="titleblock"
-				{title}
-				{frontmatter}
-				thumbnailPath={parsedRecipe?.thumbnailPath}
-				singleColumn={false}
-				app={plugin.app}
-				{file}
-				{view}
-			/>
-		</RecipeCardTwoColumn>
-	{/if}
+			app={plugin.app}
+			{file}
+			{view}
+		/>
+	</RecipeCardSplitSteps>
 </div>
 
 <style>

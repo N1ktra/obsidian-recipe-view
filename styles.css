@@ -57,9 +57,9 @@ body.is-mobile .recipe-view-reading-container {
 
 .recipe-card-split-steps,
 .split-steps-wrapper,
-.split-steps-header,
+.recipe-top-grid,
 .step-cards-list,
-.step-card {
+.recipe-step-row {
   width: 100% !important;
   max-width: 100% !important;
   box-sizing: border-box;

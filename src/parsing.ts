@@ -3,14 +3,13 @@ import RecipeLeaf from "./RecipeLeaf.svelte";
 import CheckableIngredientList from "./CheckableIngredientList.svelte";
 import SelectableStepList from "./SelectableStepList.svelte";
 import { CachedMetadata, Component, MarkdownRenderer, TFile } from "obsidian";
-import store from "./store"
-import { Writable, get, writable } from "svelte/store"
+import store from "./store";
+import { Writable, get, writable } from "svelte/store";
 import Fraction from "fraction.js";
 import { matchQuantities } from "./quantities";
 import ScaledQuantity from "./ScaledQuantity.svelte";
 import { ComponentType } from "svelte";
 import { parseForTimers } from "./timers";
-
 
 export interface ParsedRecipeComponent {
     type: ComponentType;
@@ -20,13 +19,25 @@ export interface ParsedRecipeComponent {
 
 export interface ParsedRecipeSection {
     containsHeader: boolean;
+    isExplicitSideSection?: boolean;
     sideComponents: Array<ParsedRecipeComponent>;
     mainComponents: Array<ParsedRecipeComponent>;
 }
+
+export interface ParsedRecipeStep {
+    stepNumber: number | null;
+    isHeadingOnly: boolean;
+    stepIngredients: Array<ParsedRecipeComponent>;
+    mainComponents: Array<ParsedRecipeComponent>;
+}
+
 export interface ParsedRecipe {
     title: string;
     thumbnailPath: string;
     sections: Array<ParsedRecipeSection>;
+    globalIngredients: Array<ParsedRecipeComponent>;
+    steps: Array<ParsedRecipeStep>;
+    hasStepIngredients: boolean;
     renderedMarkdownParent: HTMLElement;
     qtyScaleStore: Writable<Fraction>;
 }
@@ -172,7 +183,7 @@ function injectQuantities(parsedRecipe: ParsedRecipe) {
                     (c.props.list as Array<HTMLElement>).forEach((p) => {
                         Array.from(p.querySelectorAll("[data-qty-parse]"))
                             .forEach((n) => parseForQty(n, parsedRecipe.qtyScaleStore));
-                    })
+                    });
                 }
                 break;
 
@@ -183,7 +194,193 @@ function injectQuantities(parsedRecipe: ParsedRecipe) {
             default:
                 break;
         }
-    })
+    });
+}
+
+function isHeadingComponent(c: ParsedRecipeComponent): boolean {
+    return (
+        c.type === RecipeLeaf &&
+        typeof c.props?.asTag === "string" &&
+        /^H[1-6]$/i.test(c.props.asTag as string)
+    );
+}
+
+function buildUnifiedRecipeStructure(
+    result: ParsedRecipe,
+    radioName: string
+): void {
+    const nonEmptySections = result.sections.filter(
+        (s) => s.sideComponents.length > 0 || s.mainComponents.length > 0
+    );
+
+    const globalIngredients: Array<ParsedRecipeComponent> = [];
+    const stepSections: Array<{
+        stepIngredients: Array<ParsedRecipeComponent>;
+        mainComponents: Array<ParsedRecipeComponent>;
+    }> = [];
+
+    // Count how many non-explicit sections have sideComponents
+    const nonExplicitSideSections = nonEmptySections.filter(
+        (s) => !s.isExplicitSideSection && s.sideComponents.length > 0
+    );
+
+    for (let idx = 0; idx < nonEmptySections.length; idx++) {
+        const s = nonEmptySections[idx];
+
+        if (s.isExplicitSideSection) {
+            globalIngredients.push(...s.sideComponents);
+            if (s.mainComponents.length > 0) {
+                stepSections.push({
+                    stepIngredients: [],
+                    mainComponents: s.mainComponents,
+                });
+            }
+            continue;
+        }
+
+        // Section with only ingredients and no steps -> global ingredients
+        if (s.sideComponents.length > 0 && s.mainComponents.length === 0) {
+            globalIngredients.push(...s.sideComponents);
+            continue;
+        }
+
+        // Headerless initial ingredient list before a Directions heading or in a single-section recipe with multiple steps
+        const startsWithMainHeading =
+            s.mainComponents.length > 0 && isHeadingComponent(s.mainComponents[0]);
+        const hasMultipleOlItems = s.mainComponents.some(
+            (c) =>
+                c.type === SelectableStepList &&
+                c.props.kind === "ol" &&
+                ((c.props.list as HTMLOListElement)?.children?.length ?? 0) > 1
+        );
+
+        if (
+            idx === 0 &&
+            globalIngredients.length === 0 &&
+            nonExplicitSideSections.length === 1 &&
+            s.sideComponents.length > 0 &&
+            (startsWithMainHeading ||
+                (nonEmptySections.length === 1 && hasMultipleOlItems))
+        ) {
+            globalIngredients.push(...s.sideComponents);
+            stepSections.push({
+                stepIngredients: [],
+                mainComponents: s.mainComponents,
+            });
+            continue;
+        }
+
+        stepSections.push({
+            stepIngredients: [...s.sideComponents],
+            mainComponents: s.mainComponents,
+        });
+    }
+
+    const steps: Array<ParsedRecipeStep> = [];
+    let stepCounter = 0;
+    const isSingleStepSection = stepSections.length === 1;
+
+    for (const sec of stepSections) {
+        let pendingIngs = [...sec.stepIngredients];
+        let currentStepMain: Array<ParsedRecipeComponent> = [];
+
+        const flushCurrentStep = () => {
+            if (currentStepMain.length === 0) return;
+            stepCounter += 1;
+            steps.push({
+                stepNumber: stepCounter,
+                isHeadingOnly: false,
+                stepIngredients: pendingIngs,
+                mainComponents: currentStepMain,
+            });
+            pendingIngs = [];
+            currentStepMain = [];
+        };
+
+        for (const comp of sec.mainComponents) {
+            if (isHeadingComponent(comp) && currentStepMain.length === 0) {
+                steps.push({
+                    stepNumber: null,
+                    isHeadingOnly: true,
+                    stepIngredients: [],
+                    mainComponents: [comp],
+                });
+                continue;
+            }
+
+            if (comp.type === SelectableStepList && comp.props.kind === "ol") {
+                flushCurrentStep();
+                const olEl = comp.props.list as HTMLOListElement;
+                const liElements = Array.from(olEl.children) as Array<HTMLElement>;
+                for (const liEl of liElements) {
+                    stepCounter += 1;
+                    steps.push({
+                        stepNumber: stepCounter,
+                        isHeadingOnly: false,
+                        stepIngredients: pendingIngs,
+                        mainComponents: [
+                            {
+                                type: SelectableStepList,
+                                props: {
+                                    list: [liEl],
+                                    kind: "p",
+                                    radioName,
+                                },
+                                origIndex: comp.origIndex,
+                            },
+                        ],
+                    });
+                    pendingIngs = [];
+                }
+                continue;
+            }
+
+            if (
+                isSingleStepSection &&
+                comp.type === SelectableStepList &&
+                comp.props.kind === "p"
+            ) {
+                flushCurrentStep();
+                const pElements = comp.props.list as Array<HTMLElement>;
+                for (const pEl of pElements) {
+                    stepCounter += 1;
+                    steps.push({
+                        stepNumber: stepCounter,
+                        isHeadingOnly: false,
+                        stepIngredients: pendingIngs,
+                        mainComponents: [
+                            {
+                                type: SelectableStepList,
+                                props: {
+                                    list: [pEl],
+                                    kind: "p",
+                                    radioName,
+                                },
+                                origIndex: comp.origIndex,
+                            },
+                        ],
+                    });
+                    pendingIngs = [];
+                }
+                continue;
+            }
+
+            currentStepMain.push(comp);
+        }
+
+        flushCurrentStep();
+
+        // If a section had pending ingredients and only a heading, attach them to globalIngredients
+        if (pendingIngs.length > 0) {
+            globalIngredients.push(...pendingIngs);
+        }
+    }
+
+    result.globalIngredients = globalIngredients;
+    result.steps = steps;
+    result.hasStepIngredients = steps.some(
+        (s) => s.stepIngredients.length > 0
+    );
 }
 
 export function parseRecipeMarkdown(
@@ -204,11 +401,17 @@ export function parseRecipeMarkdown(
     const result: ParsedRecipe = {
         title: "",
         thumbnailPath: frontmatterCover,
-        sections: [{
-            containsHeader: false,
-            sideComponents: [],
-            mainComponents: [],
-        }],
+        sections: [
+            {
+                containsHeader: false,
+                isExplicitSideSection: false,
+                sideComponents: [],
+                mainComponents: [],
+            },
+        ],
+        globalIngredients: [],
+        steps: [],
+        hasStepIngredients: false,
         renderedMarkdownParent: createDiv(),
         qtyScaleStore: writable(new Fraction(1)),
     };
@@ -224,7 +427,7 @@ export function parseRecipeMarkdown(
     const sideColumnRegex = RegExp(plugin.settings.sideColumnRegex, "i");
 
     let currentSection = 0;
-    let currentColumn = "mainComponents";
+    let currentColumn: "sideComponents" | "mainComponents" = "mainComponents";
 
     let sendToSideUntilLevel = 7;
     for (let i = 0; i < result.renderedMarkdownParent.children.length; i++) {
@@ -234,11 +437,12 @@ export function parseRecipeMarkdown(
         if (item.nodeName == "HR") {
             result.sections.push({
                 containsHeader: false,
+                isExplicitSideSection: false,
                 sideComponents: [],
                 mainComponents: [],
             });
             currentSection++;
-            currentColumn = "mainComponents"
+            currentColumn = "mainComponents";
             sendToSideUntilLevel = 7;
             continue; // Don't include the HR to be rendered
         }
@@ -249,22 +453,43 @@ export function parseRecipeMarkdown(
             if (
                 plugin.settings.treatH1AsFilename &&
                 headerLevel == 1 &&
-                result.sections[currentSection].containsHeader == false
+                result.sections[currentSection].containsHeader == false &&
+                currentSection == 0
             ) {
                 result.title = item?.textContent || "";
                 continue;
             } else {
                 result.sections[currentSection].containsHeader = true;
             }
-            if (
-                item.textContent?.match(sideColumnRegex)
-            ) {
+            if (item.textContent?.match(sideColumnRegex)) {
+                // If current section already has main step components, start a new section for this side block
+                if (result.sections[currentSection].mainComponents.length > 0) {
+                    result.sections.push({
+                        containsHeader: true,
+                        isExplicitSideSection: true,
+                        sideComponents: [],
+                        mainComponents: [],
+                    });
+                    currentSection++;
+                } else {
+                    result.sections[currentSection].isExplicitSideSection = true;
+                }
                 currentColumn = "sideComponents";
                 sendToSideUntilLevel = headerLevel;
             } else if (
                 currentColumn == "sideComponents" &&
                 headerLevel <= sendToSideUntilLevel
             ) {
+                // Exiting an explicit side section (e.g. moving from ## Ingredients to ## Directions)
+                if (result.sections[currentSection].sideComponents.length > 0) {
+                    result.sections.push({
+                        containsHeader: true,
+                        isExplicitSideSection: false,
+                        sideComponents: [],
+                        mainComponents: [],
+                    });
+                    currentSection++;
+                }
                 currentColumn = "mainComponents";
                 sendToSideUntilLevel = 7;
             }
@@ -283,22 +508,37 @@ export function parseRecipeMarkdown(
             !result.thumbnailPath &&
             !result.sections[0].containsHeader
         ) {
-            result.thumbnailPath = item
-                .getElementsByTagName("IMG")
-                .item(0)?.getAttribute("src") || "";
+            result.thumbnailPath =
+                item.getElementsByTagName("IMG").item(0)?.getAttribute("src") || "";
             continue; // Don't send to either column
         }
 
-        // If it's an unordered list, make it checkable if either:
-        // 1. it's going to the sidebar, or
-        // 2. we haven't seen a header yet (and then send it there)
-        if (
-            item.nodeName == "UL" &&
-            (currentColumn == "sideComponents" || !result.sections[currentSection].containsHeader)
-        ) {
-            result.sections[currentSection]["sideComponents"].push({
+        // Unordered lists (UL) are always treated as checkable ingredient lists:
+        // - In explicit sideColumn sections -> globalIngredients
+        // - In step sections (or directly before a step) -> stepIngredients of that step
+        if (item.nodeName == "UL") {
+            if (
+                currentColumn == "mainComponents" &&
+                result.sections[currentSection].mainComponents.some(
+                    (c) => !isHeadingComponent(c)
+                )
+            ) {
+                // Start a new step section so this UL attaches to the following step
+                result.sections.push({
+                    containsHeader: false,
+                    isExplicitSideSection: false,
+                    sideComponents: [],
+                    mainComponents: [],
+                });
+                currentSection++;
+            }
+
+            result.sections[currentSection].sideComponents.push({
                 type: CheckableIngredientList,
-                props: { list: item, bullets: plugin.settings.showBulletsTwoColumn },
+                props: {
+                    list: item,
+                    bullets: plugin.settings.showBulletsTwoColumn,
+                },
                 origIndex: i,
             });
             continue;
@@ -320,7 +560,10 @@ export function parseRecipeMarkdown(
 
         // If we're sending a paragraph to the main column, then make it selectable
         if (item.nodeName == "P" && currentColumn == "mainComponents") {
-            const prev = result.sections[currentSection][currentColumn][result.sections[currentSection][currentColumn].length - 1];
+            const prev =
+                result.sections[currentSection][currentColumn][
+                    result.sections[currentSection][currentColumn].length - 1
+                ];
             if (
                 prev &&
                 prev.type == SelectableStepList &&
@@ -346,7 +589,6 @@ export function parseRecipeMarkdown(
         if (item.hasClass("callout")) {
             const calloutWrapper = createDiv();
             calloutWrapper.appendChild(item);
-            // @ts-ignore
             result.sections[currentSection][currentColumn].push({
                 type: RecipeLeaf,
                 props: { childNodesOf: calloutWrapper, asTag: "div" },
@@ -359,7 +601,6 @@ export function parseRecipeMarkdown(
         }
 
         // Add current item to current column
-        // @ts-ignore
         result.sections[currentSection][currentColumn].push({
             type: RecipeLeaf,
             props: { childNodesOf: item, asTag: item.nodeName },
@@ -368,6 +609,7 @@ export function parseRecipeMarkdown(
     }
 
     injectQuantities(result);
+    buildUnifiedRecipeStructure(result, radioName);
 
     return result;
 }

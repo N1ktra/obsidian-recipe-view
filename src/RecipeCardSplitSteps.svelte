@@ -1,88 +1,236 @@
 <script lang="ts">
-	import { ParsedRecipeSection } from "./parsing";
+	import {
+		ParsedRecipeComponent,
+		ParsedRecipeSection,
+		ParsedRecipeStep,
+	} from "./parsing";
+	import store from "./store";
+	import RecipeViewPlugin from "./main";
+	import { get } from "svelte/store";
 
+	export let globalIngredients: Array<ParsedRecipeComponent> = [];
+	export let steps: Array<ParsedRecipeStep> = [];
 	export let sections: Array<ParsedRecipeSection> = [];
 	export let singleColumn = false;
 
-	interface NumberedSection {
-		section: ParsedRecipeSection;
-		stepNumber: number | null;
+	let plugin: RecipeViewPlugin = get(store.plugin);
+	store.plugin.subscribe((p) => (plugin = p));
+	$: styleIngredientBox = plugin?.settings?.styleIngredientBox ?? true;
+
+	let wrapperEl: HTMLDivElement;
+	let selectedStepNumber: number | null = null;
+
+	function syncSelectedFromDom() {
+		if (!wrapperEl) return;
+		const checkedRadio = wrapperEl.querySelector(
+			'input[type="radio"]:checked'
+		) as HTMLInputElement | null;
+		if (!checkedRadio) {
+			selectedStepNumber = null;
+			return;
+		}
+		const stepOwner = checkedRadio.closest(
+			"[data-step-number]"
+		) as HTMLElement | null;
+		const numAttr = stepOwner?.getAttribute("data-step-number");
+		selectedStepNumber = numAttr ? parseInt(numAttr, 10) : null;
 	}
 
-	function isHeadingOnlySection(section: ParsedRecipeSection): boolean {
-		return (
-			section.sideComponents.length === 0 &&
-			section.mainComponents.length > 0 &&
-			section.mainComponents.every(
-				(c) =>
-					typeof c.props?.asTag === "string" &&
-					/^H[1-6]$/i.test(c.props.asTag as string)
-			)
-		);
+	function handleStepMainClick(e: MouseEvent, stepNumber: number | null) {
+		const target = e.target as HTMLElement | null;
+		if (!target) return;
+
+		// Do not hijack clicks on links or buttons (e.g. @timer{...} buttons)
+		if (target.closest("a, button")) {
+			return;
+		}
+
+		const mainEl = e.currentTarget as HTMLElement | null;
+		if (!mainEl) return;
+
+		const radio = mainEl.querySelector(
+			'input[type="radio"]'
+		) as HTMLInputElement | null;
+		if (radio) {
+			radio.checked = true;
+			radio.dispatchEvent(new Event("change", { bubbles: true }));
+			radio.focus({ preventScroll: true });
+		}
+		selectedStepNumber = stepNumber;
 	}
 
-	$: activeSections = (sections || []).filter(
-		(s) => s.sideComponents.length > 0 || s.mainComponents.length > 0
+	$: effectiveSteps = steps || [];
+	$: hasGlobalIngredients = (globalIngredients?.length ?? 0) > 0;
+	$: firstStepWithIngIdx = effectiveSteps.findIndex(
+		(s) => s.stepIngredients.length > 0
 	);
 
-	$: numberedSections = (() => {
-		let counter = 0;
-		return activeSections.map((section): NumberedSection => {
-			if (
-				section.mainComponents.length > 0 &&
-				!isHeadingOnlySection(section)
-			) {
-				counter += 1;
-				return { section, stepNumber: counter };
-			}
-			return { section, stepNumber: null };
-		});
-	})();
+	// Partition steps:
+	// - When globalIngredients exist, steps before the first step with its own stepIngredients
+	//   sit in the right column of the top grid next to the global ingredients card.
+	// - All steps from the first step with stepIngredients onward (or all steps when there are no
+	//   globalIngredients) are rendered in synchronized .recipe-step-row grid rows.
+	$: topRightSteps = hasGlobalIngredients
+		? firstStepWithIngIdx === -1
+			? effectiveSteps
+			: effectiveSteps.slice(0, firstStepWithIngIdx)
+		: [];
+
+	$: bottomStepRows = hasGlobalIngredients
+		? firstStepWithIngIdx === -1
+			? []
+			: effectiveSteps.slice(firstStepWithIngIdx)
+		: effectiveSteps;
+
+	// Find the last numbered step across the entire recipe
+	$: lastNumberedStep = [...effectiveSteps]
+		.reverse()
+		.find((s) => !s.isHeadingOnly);
 </script>
 
 <div
 	class="recipe-card split-steps recipe-card-split-steps"
 	class:single-column={singleColumn}
+	data-sections-count={sections?.length ?? 0}
+	bind:this={wrapperEl}
+	on:change={syncSelectedFromDom}
 >
 	<div class="split-steps-wrapper">
-		<div class="split-steps-header">
-			<slot name="titleblock" />
-			<slot name="scaleselector" />
-		</div>
+		<div
+			class="recipe-top-grid"
+			class:has-top-steps={topRightSteps.length > 0}
+			class:has-bottom-rows={bottomStepRows.length > 0}
+		>
+			<div class="top-title-area">
+				<slot name="titleblock" />
+			</div>
 
-		{#if numberedSections.length > 0}
-			<div class="step-cards-list">
-				{#each numberedSections as { section, stepNumber } (section)}
-					<div
-						class="step-card"
-						class:has-ingredients={section.sideComponents.length > 0}
-						class:has-steps={section.mainComponents.length > 0}
-					>
-						{#if section.sideComponents.length > 0}
-							<div class="column column-side step-card-ingredients">
-								{#each section.sideComponents as c (c)}
-									<svelte:component this={c.type} {...c.props} />
+			<div class="top-sidebar-area">
+				<div
+					class="recipe-sidebar-card global-ingredients-card"
+					class:ingredient-box={styleIngredientBox}
+					class:has-global-ingredients={hasGlobalIngredients}
+				>
+					<slot name="scaleselector" />
+					{#if hasGlobalIngredients}
+						<div class="global-ingredients-body">
+							{#each globalIngredients as c (c)}
+								<svelte:component this={c.type} {...c.props} />
+							{/each}
+						</div>
+					{/if}
+				</div>
+			</div>
+
+			{#if topRightSteps.length > 0}
+				<div class="top-steps-area">
+					{#each topRightSteps as step (step)}
+						{#if step.isHeadingOnly}
+							<div class="step-heading-block">
+								{#each step.mainComponents as c (c)}
+									<svelte:component
+										this={c.type}
+										{...c.props}
+									/>
 								{/each}
 							</div>
+						{:else}
+							<div
+								class="top-step-item"
+								class:is-last-step={step === lastNumberedStep}
+								class:is-selected={step.stepNumber !== null &&
+									selectedStepNumber === step.stepNumber}
+								data-step-number={step.stepNumber}
+							>
+								<!-- svelte-ignore a11y-click-events-have-key-events -->
+								<!-- svelte-ignore a11y-no-static-element-interactions -->
+								<div
+									class="step-card-main"
+									on:click={(e) =>
+										handleStepMainClick(e, step.stepNumber)}
+								>
+									{#if step.stepNumber !== null}
+										<span
+											class="step-card-number"
+											aria-label="Step {step.stepNumber}"
+										>
+											{step.stepNumber}.
+										</span>
+									{/if}
+									<div class="step-card-body">
+										{#each step.mainComponents as c (c)}
+											<svelte:component
+												this={c.type}
+												{...c.props}
+											/>
+										{/each}
+									</div>
+								</div>
+							</div>
+						{/if}
+					{/each}
+				</div>
+			{/if}
+		</div>
+
+		{#if bottomStepRows.length > 0}
+			<div class="step-cards-list">
+				{#each bottomStepRows as step (step)}
+					<div
+						class="recipe-step-row"
+						class:has-ingredients={step.stepIngredients.length > 0}
+						class:is-heading-row={step.isHeadingOnly}
+						class:is-selected={step.stepNumber !== null &&
+							selectedStepNumber === step.stepNumber}
+						data-step-number={step.stepNumber}
+					>
+						{#if step.stepIngredients.length > 0}
+							<div class="step-ingredients-card">
+								{#each step.stepIngredients as c (c)}
+									<svelte:component
+										this={c.type}
+										{...c.props}
+									/>
+								{/each}
+							</div>
+						{:else}
+							<div class="step-ingredients-empty" />
 						{/if}
 
-						{#if section.mainComponents.length > 0}
-							<div class="column column-main step-card-main">
-								{#if stepNumber !== null}
-									<div
-										class="step-card-badge"
-										aria-label="Step {stepNumber}"
-									>
-										{stepNumber}
+						{#if step.isHeadingOnly}
+							<div class="step-heading-block">
+								{#each step.mainComponents as c (c)}
+									<svelte:component
+										this={c.type}
+										{...c.props}
+									/>
+								{/each}
+							</div>
+						{:else}
+							<div class="step-right-cell">
+								<!-- svelte-ignore a11y-click-events-have-key-events -->
+								<!-- svelte-ignore a11y-no-static-element-interactions -->
+								<div
+									class="step-card-main"
+									on:click={(e) =>
+										handleStepMainClick(e, step.stepNumber)}
+								>
+									{#if step.stepNumber !== null}
+										<span
+											class="step-card-number"
+											aria-label="Step {step.stepNumber}"
+										>
+											{step.stepNumber}.
+										</span>
+									{/if}
+									<div class="step-card-body">
+										{#each step.mainComponents as c (c)}
+											<svelte:component
+												this={c.type}
+												{...c.props}
+											/>
+										{/each}
 									</div>
-								{/if}
-								<div class="step-card-body">
-									{#each section.mainComponents as c (c)}
-										<svelte:component
-											this={c.type}
-											{...c.props}
-										/>
-									{/each}
 								</div>
 							</div>
 						{/if}
@@ -97,9 +245,9 @@
 	.recipe-card.split-steps,
 	.recipe-card-split-steps,
 	.split-steps-wrapper,
-	.split-steps-header,
+	.recipe-top-grid,
 	.step-cards-list,
-	.step-card {
+	.recipe-step-row {
 		width: 100% !important;
 		max-width: 100% !important;
 		box-sizing: border-box;
@@ -119,48 +267,99 @@
 		align-items: stretch;
 	}
 
-	.split-steps-header {
-		margin-block-end: var(--size-4-4);
+	/* Top overview grid:
+	   - Desktop: Left column (280px) has Scale recipe + Global Ingredients card;
+	              Right column (1fr) has TitleBlock + initial Directions steps.
+	   - Mobile:  1 column (TitleBlock -> Scale recipe + Global Ingredients -> Directions). */
+	.recipe-top-grid {
+		display: grid;
+		grid-template-columns: 280px 1fr;
+		column-gap: var(--size-4-5);
+		row-gap: 0;
+		align-items: start;
 	}
 
-	.step-cards-list {
-		display: flex;
-		flex-direction: column;
-		align-items: stretch;
-		gap: var(--size-4-4);
+	.recipe-top-grid.has-bottom-rows {
+		margin-bottom: var(--size-4-4);
 	}
 
-	.step-card {
-		display: flex;
-		flex-direction: row;
-		align-items: stretch;
-		gap: var(--size-4-4);
-		background-color: var(--background-secondary);
-		border: 1px solid var(--background-modifier-border);
-		border-radius: var(--radius-m);
-		padding: var(--size-4-4);
+	.recipe-top-grid.has-top-steps {
+		grid-template-rows: auto 1fr;
 	}
 
-	.column {
-		padding: 0;
+	.top-sidebar-area {
+		grid-column: 1;
+		grid-row: 1;
+		width: 100%;
 		min-width: 0;
 	}
 
-	/* Left column: Step ingredients */
-	.step-card-ingredients {
-		flex: 0 0 260px;
-		min-width: 220px;
-		max-width: 320px;
+	.recipe-top-grid.has-top-steps .top-sidebar-area {
+		grid-row: 1 / span 2;
+	}
+
+	.top-title-area {
+		grid-column: 2;
+		grid-row: 1;
+		width: 100%;
+		min-width: 0;
+	}
+
+	.top-steps-area {
+		grid-column: 2;
+		grid-row: 2;
+		width: 100%;
+		min-width: 0;
+		display: flex;
+		flex-direction: column;
+	}
+
+	/* Unified Sidebar Card (Scale recipe + Global ingredients) & Step ingredients card */
+	.recipe-sidebar-card,
+	.global-ingredients-card.ingredient-box,
+	.step-ingredients-card {
+		background-color: var(--background-secondary);
+		border: 1px solid var(--background-modifier-border);
+		border-radius: var(--radius-m);
+		padding: var(--size-4-3);
 		box-sizing: border-box;
+		width: 100%;
+		cursor: default;
+		transition: border-color 0.15s ease, box-shadow 0.15s ease;
 	}
 
-	.step-card.has-steps .step-card-ingredients {
-		border-inline-end: 1px solid var(--background-modifier-border);
-		padding-inline-end: var(--size-4-4);
+	/* Remove separate border/background/radius from inner ScaleSelector so sidebar card looks unified */
+	.recipe-sidebar-card :global(.scale-selector) {
+		background-color: transparent !important;
+		border: none !important;
+		border-radius: 0 !important;
+		padding: 0 !important;
+		margin: 0 !important;
+		box-shadow: none !important;
 	}
 
-	.step-card-ingredients :global(ul),
-	.step-card-ingredients :global(ul.bullets) {
+	/* Subtle divider line between Scale recipe and Global ingredients below it */
+	.recipe-sidebar-card.has-global-ingredients :global(.scale-selector) {
+		padding-block-end: var(--size-4-3) !important;
+		margin-block-end: var(--size-4-3) !important;
+		border-bottom: 1px solid var(--background-modifier-border) !important;
+	}
+
+	.global-ingredients-body {
+		width: 100%;
+		min-width: 0;
+	}
+
+	.global-ingredients-card :global(.recipe-leaf:is(h1, h2, h3, h4, h5, h6):first-child),
+	.step-ingredients-card :global(.recipe-leaf:is(h1, h2, h3, h4, h5, h6):first-child) {
+		margin-block-start: 0;
+		margin-block-end: var(--size-4-2);
+	}
+
+	.global-ingredients-card :global(ul),
+	.global-ingredients-card :global(ul.bullets),
+	.step-ingredients-card :global(ul),
+	.step-ingredients-card :global(ul.bullets) {
 		list-style: none !important;
 		list-style-type: none !important;
 		margin-block: 0 !important;
@@ -168,63 +367,162 @@
 		margin-inline-start: 0 !important;
 	}
 
-	.step-card-ingredients :global(ul > li),
-	.step-card-ingredients :global(ul.bullets > li) {
+	.global-ingredients-card :global(ul > li),
+	.global-ingredients-card :global(ul.bullets > li),
+	.step-ingredients-card :global(ul > li),
+	.step-ingredients-card :global(ul.bullets > li) {
 		list-style: none !important;
 		list-style-type: none !important;
 		margin-inline-start: 0 !important;
 		padding-inline-start: 0 !important;
 	}
 
-	.step-card-ingredients :global(ul > li:first-child) {
+	.global-ingredients-card :global(ul > li:first-child),
+	.step-ingredients-card :global(ul > li:first-child) {
 		margin-block-start: 0 !important;
 	}
 
-	.step-card-ingredients :global(ul > li:last-child) {
+	.global-ingredients-card :global(ul > li:last-child),
+	.step-ingredients-card :global(ul > li:last-child) {
 		margin-block-end: 0 !important;
 	}
 
-	.step-card-ingredients :global(.recipe-leaf:is(h1, h2, h3, h4, h5, h6):first-child) {
-		margin-block-start: 0;
+	/* Unified Step Rows Grid:
+	   - Transparent 1px border on all sides by default prevents layout jumping when selected.
+	   - Bottom border serves as the full-row divider when unselected.
+	   - Hover and selection are triggered ONLY from the right column (.step-card-main),
+	     but visually style the entire .recipe-step-row as one closed unit. */
+	.step-cards-list {
+		display: flex;
+		flex-direction: column;
+		align-items: stretch;
 	}
 
-	/* Right column: Step number badge + step content */
-	.step-card-main {
-		flex: 1 1 0;
+	.recipe-step-row {
+		display: grid;
+		grid-template-columns: 280px 1fr;
+		gap: var(--size-4-5);
+		align-items: start;
+		padding: var(--size-4-3);
+		margin-bottom: var(--size-4-3);
+		border: 1px solid transparent;
+		border-bottom-color: var(--background-modifier-border);
+		border-radius: 0;
+		background-color: transparent;
+		cursor: default;
+		transition: background-color 0.15s ease, border-color 0.15s ease;
+	}
+
+	.recipe-step-row:last-child {
+		border-bottom-color: transparent;
+		margin-bottom: 0;
+	}
+
+	/* Hover triggered ONLY when hovering the right-hand step column (.step-card-main) */
+	@media (hover: hover) {
+		.recipe-step-row:has(.step-card-main:hover) {
+			background-color: var(--background-modifier-hover);
+			border-radius: var(--radius-m);
+			border-bottom-color: transparent;
+		}
+	}
+
+	/* Selected state: ONE closed accent frame around the entire row (left + right united) */
+	.recipe-step-row.is-selected,
+	.recipe-step-row:has(input[type="radio"]:checked) {
+		border: 1px solid var(--interactive-accent);
+		border-radius: var(--radius-m);
+		background-color: var(--background-secondary-alt, var(--background-secondary));
+	}
+
+	.step-ingredients-empty {
 		min-width: 0;
+	}
+
+	.step-heading-block {
+		width: 100%;
+		min-width: 0;
+		padding-block: var(--size-4-2) var(--size-4-1);
+	}
+
+	.step-heading-block :global(.recipe-leaf:is(h1, h2, h3, h4, h5, h6)) {
+		margin-block: 0;
+	}
+
+	/* Steps inside topRightSteps (when beside global ingredients card) */
+	.top-step-item {
 		width: 100%;
 		max-width: 100%;
-		display: flex;
-		flex-direction: row;
-		align-items: flex-start;
-		gap: var(--size-4-3);
+		min-width: 0;
+		box-sizing: border-box;
+		border: 1px solid transparent;
+		border-bottom-color: var(--background-modifier-border);
+		border-radius: 0;
+		padding: var(--size-4-3);
+		margin-bottom: var(--size-4-2);
+		background-color: transparent;
+		transition: background-color 0.15s ease, border-color 0.15s ease;
 	}
 
-	.step-card-badge {
-		flex-shrink: 0;
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		min-width: 26px;
-		height: 26px;
-		padding: 0 6px;
-		border-radius: 999px;
-		background-color: hsla(
-			var(--accent-h),
-			var(--accent-s),
-			var(--accent-l),
-			0.16
-		);
-		border: 1px solid
-			hsla(var(--accent-h), var(--accent-s), var(--accent-l), 0.35);
-		color: var(--text-accent);
-		font-size: var(--font-smaller, 0.85em);
-		font-weight: 600;
-		font-variant-numeric: tabular-nums;
-		line-height: 1;
-		user-select: none;
+	.top-step-item.is-last-step {
+		border-bottom-color: transparent;
+		margin-bottom: 0;
+	}
+
+	@media (hover: hover) {
+		.top-step-item:has(.step-card-main:hover) {
+			background-color: var(--background-modifier-hover);
+			border-radius: var(--radius-m);
+			border-bottom-color: transparent;
+		}
+	}
+
+	.top-step-item.is-selected,
+	.top-step-item:has(input[type="radio"]:checked) {
+		border: 1px solid var(--interactive-accent);
+		border-radius: var(--radius-m);
+		background-color: var(--background-secondary-alt, var(--background-secondary));
+	}
+
+	/* Right column container inside .recipe-step-row */
+	.step-right-cell {
+		width: 100%;
+		max-width: 100%;
+		min-width: 0;
 		box-sizing: border-box;
-		margin-top: 1px;
+	}
+
+	/* Right-hand step trigger area: ONLY this area has cursor: pointer and triggers hover/click.
+	   No separate box border of its own so the parent row forms the single closed frame. */
+	.step-card-main {
+		width: 100%;
+		max-width: 100%;
+		box-sizing: border-box;
+		display: flex;
+		flex-direction: row;
+		align-items: baseline;
+		gap: var(--size-4-2);
+		background-color: transparent;
+		border: none;
+		padding: var(--size-4-1) 0;
+		cursor: pointer;
+		-webkit-tap-highlight-color: transparent;
+	}
+
+	.recipe-step-row.is-selected .step-card-number,
+	.recipe-step-row:has(input[type="radio"]:checked) .step-card-number,
+	.top-step-item.is-selected .step-card-number,
+	.top-step-item:has(input[type="radio"]:checked) .step-card-number {
+		color: var(--text-accent);
+		font-weight: 600;
+	}
+
+	.step-card-number {
+		flex-shrink: 0;
+		color: var(--text-muted);
+		font-variant-numeric: tabular-nums;
+		min-width: 1.5em;
+		user-select: none;
 	}
 
 	.step-card-body {
@@ -261,52 +559,72 @@
 		margin-block-end: 0 !important;
 	}
 
-	/* Responsive mobile / narrow window layout */
-	.recipe-card.split-steps.single-column .step-card,
-	:global(body.is-mobile) .recipe-card.split-steps .step-card {
-		flex-direction: column;
-		gap: var(--size-4-3);
+	/* Responsive mobile / narrow window layout (singleColumn) */
+	.recipe-card.split-steps.single-column .recipe-top-grid,
+	:global(body.is-mobile) .recipe-card.split-steps .recipe-top-grid {
+		grid-template-columns: 1fr;
+		grid-template-rows: auto;
+		row-gap: var(--size-4-4);
 	}
 
-	.recipe-card.split-steps.single-column .step-card-ingredients,
-	:global(body.is-mobile) .recipe-card.split-steps .step-card-ingredients {
-		flex: 1 1 auto;
-		width: 100% !important;
-		min-width: 0;
-		max-width: 100% !important;
+	.recipe-card.split-steps.single-column .top-title-area,
+	:global(body.is-mobile) .recipe-card.split-steps .top-title-area {
+		grid-column: 1;
+		grid-row: 1;
 	}
 
-	.recipe-card.split-steps.single-column
-		.step-card.has-steps
-		.step-card-ingredients,
-	:global(body.is-mobile)
-		.recipe-card.split-steps
-		.step-card.has-steps
-		.step-card-ingredients {
-		border-inline-end: none;
-		padding-inline-end: 0;
-		border-block-end: 1px solid var(--background-modifier-border);
-		padding-block-end: var(--size-4-3);
+	.recipe-card.split-steps.single-column .top-sidebar-area,
+	:global(body.is-mobile) .recipe-card.split-steps .top-sidebar-area {
+		grid-column: 1;
+		grid-row: 2;
+	}
+
+	.recipe-card.split-steps.single-column .top-steps-area,
+	:global(body.is-mobile) .recipe-card.split-steps .top-steps-area {
+		grid-column: 1;
+		grid-row: 3;
+	}
+
+	.recipe-card.split-steps.single-column .recipe-step-row,
+	:global(body.is-mobile) .recipe-card.split-steps .recipe-step-row {
+		grid-template-columns: 1fr;
+		gap: var(--size-4-2);
+	}
+
+	.recipe-card.split-steps.single-column .step-ingredients-empty,
+	:global(body.is-mobile) .recipe-card.split-steps .step-ingredients-empty {
+		display: none;
 	}
 
 	@media (max-width: 650px) {
-		.step-card {
-			flex-direction: column;
-			gap: var(--size-4-3);
+		.recipe-top-grid {
+			grid-template-columns: 1fr;
+			grid-template-rows: auto;
+			row-gap: var(--size-4-4);
 		}
 
-		.step-card-ingredients {
-			flex: 1 1 auto;
-			width: 100% !important;
-			min-width: 0;
-			max-width: 100% !important;
+		.top-title-area {
+			grid-column: 1;
+			grid-row: 1;
 		}
 
-		.step-card.has-steps .step-card-ingredients {
-			border-inline-end: none;
-			padding-inline-end: 0;
-			border-block-end: 1px solid var(--background-modifier-border);
-			padding-block-end: var(--size-4-3);
+		.top-sidebar-area {
+			grid-column: 1;
+			grid-row: 2;
+		}
+
+		.top-steps-area {
+			grid-column: 1;
+			grid-row: 3;
+		}
+
+		.recipe-step-row {
+			grid-template-columns: 1fr;
+			gap: var(--size-4-2);
+		}
+
+		.step-ingredients-empty {
+			display: none;
 		}
 	}
 </style>
