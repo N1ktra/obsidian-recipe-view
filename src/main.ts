@@ -168,7 +168,7 @@ export default class RecipeViewPlugin extends Plugin {
 		}
 
 		const text =
-			typeof view.data === "string"
+			typeof view.data === "string" && view.data.length > 0
 				? view.data
 				: await this.app.vault.cachedRead(file);
 

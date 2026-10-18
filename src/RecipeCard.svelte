@@ -6,7 +6,7 @@
 	import ScaleSelector from "./ScaleSelector.svelte";
 	import Fraction from "fraction.js";
 	import RecipeCardSplitSteps from "./RecipeCardSplitSteps.svelte";
-	import { ParsedRecipe } from "./parsing";
+	import { ParsedRecipe, parseFrontmatterTimeMinutes } from "./parsing";
 
 	import { get } from "svelte/store";
 
@@ -41,6 +41,20 @@
 		return 1;
 	}
 
+	function getCaseInsensitiveFmValue(
+		fm: Record<string, unknown> | undefined,
+		targetKey: string
+	): unknown {
+		if (!fm) return undefined;
+		const lower = targetKey.toLowerCase();
+		for (const [k, v] of Object.entries(fm)) {
+			if (k.trim().toLowerCase() === lower) {
+				return v;
+			}
+		}
+		return undefined;
+	}
+
 	// Titleblock & frontmatter variables
 	$: title = parsedRecipe.title ? parsedRecipe.title : file.basename;
 	$: frontmatter = metadata?.frontmatter || {};
@@ -48,6 +62,42 @@
 		frontmatter,
 		plugin?.settings?.servingsProperty || "servings"
 	);
+
+	// Synchronize calculated total_time as a pure numeric integer (minutes) into YAML frontmatter
+	let lastSyncedTotalMinutes: number | null = null;
+	$: totalTimerMinutes = parsedRecipe?.totalTimerMinutes ?? 0;
+	$: rawExtraTime =
+		getCaseInsensitiveFmValue(frontmatter, "extra_time") ??
+		getCaseInsensitiveFmValue(frontmatter, "prep_time");
+	$: extraMinutes = parseFrontmatterTimeMinutes(rawExtraTime);
+	$: totalMinutes = Math.round(
+		(totalTimerMinutes > 0 ? totalTimerMinutes : 0) + extraMinutes
+	);
+
+	$: {
+		const fmTotal = getCaseInsensitiveFmValue(frontmatter, "total_time");
+		const alreadyMatchesNumeric =
+			typeof fmTotal === "number" && fmTotal === totalMinutes;
+		if (
+			totalMinutes > 0 &&
+			!alreadyMatchesNumeric &&
+			lastSyncedTotalMinutes !== totalMinutes
+		) {
+			lastSyncedTotalMinutes = totalMinutes;
+			const targetFile =
+				file || plugin?.app?.workspace?.getActiveFile?.();
+			if (targetFile && plugin?.app?.fileManager?.processFrontMatter) {
+				void plugin.app.fileManager.processFrontMatter(
+					targetFile,
+					(fm) => {
+						if (fm["total_time"] !== totalMinutes) {
+							fm["total_time"] = totalMinutes;
+						}
+					}
+				);
+			}
+		}
+	}
 
 	// Recipe scaling - initialize with baseServings from frontmatter (default: 1)
 	let lastBaseServings: number | null = null;
@@ -186,6 +236,7 @@
 			slot="titleblock"
 			{title}
 			{frontmatter}
+			totalTimerMinutes={parsedRecipe?.totalTimerMinutes ?? 0}
 			thumbnailPath={parsedRecipe?.thumbnailPath}
 			singleColumn={Boolean(isBelowSingleColumnWidth)}
 			app={plugin.app}

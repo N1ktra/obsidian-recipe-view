@@ -403,14 +403,17 @@
 		grid-template-columns: 280px 1fr;
 		gap: var(--size-4-5);
 		align-items: start;
-		padding: var(--size-4-3);
+		padding-block: var(--size-4-3);
+		padding-inline: 0;
 		margin-bottom: var(--size-4-3);
-		border: 1px solid transparent;
-		border-bottom-color: var(--background-modifier-border);
+		border: none;
+		border-bottom: 1px solid var(--background-modifier-border);
 		border-radius: 0;
 		background-color: transparent;
+		box-sizing: border-box;
 		cursor: default;
-		transition: background-color 0.15s ease, border-color 0.15s ease;
+		transition: background-color 0.15s ease, border-color 0.15s ease,
+			box-shadow 0.15s ease;
 	}
 
 	.recipe-step-row:last-child {
@@ -427,12 +430,17 @@
 		}
 	}
 
-	/* Selected state: ONE closed accent frame around the entire row (left + right united) */
+	/* Selected state: ONE closed accent frame around the entire row (left + right united)
+	   using box-shadow so no horizontal border/padding offsets the left column alignment */
 	.recipe-step-row.is-selected,
 	.recipe-step-row:has(input[type="radio"]:checked) {
-		border: 1px solid var(--interactive-accent);
+		border-bottom-color: transparent;
 		border-radius: var(--radius-m);
-		background-color: var(--background-secondary-alt, var(--background-secondary));
+		background-color: var(
+			--background-secondary-alt,
+			var(--background-secondary)
+		);
+		box-shadow: 0 0 0 1px var(--interactive-accent);
 	}
 
 	.step-ingredients-empty {
@@ -455,13 +463,15 @@
 		max-width: 100%;
 		min-width: 0;
 		box-sizing: border-box;
-		border: 1px solid transparent;
-		border-bottom-color: var(--background-modifier-border);
+		border: none;
+		border-bottom: 1px solid var(--background-modifier-border);
 		border-radius: 0;
-		padding: var(--size-4-3);
+		padding-block: var(--size-4-3);
+		padding-inline: 0;
 		margin-bottom: var(--size-4-2);
 		background-color: transparent;
-		transition: background-color 0.15s ease, border-color 0.15s ease;
+		transition: background-color 0.15s ease, border-color 0.15s ease,
+			box-shadow 0.15s ease;
 	}
 
 	.top-step-item.is-last-step {
@@ -479,9 +489,13 @@
 
 	.top-step-item.is-selected,
 	.top-step-item:has(input[type="radio"]:checked) {
-		border: 1px solid var(--interactive-accent);
+		border-bottom-color: transparent;
 		border-radius: var(--radius-m);
-		background-color: var(--background-secondary-alt, var(--background-secondary));
+		background-color: var(
+			--background-secondary-alt,
+			var(--background-secondary)
+		);
+		box-shadow: 0 0 0 1px var(--interactive-accent);
 	}
 
 	/* Right column container inside .recipe-step-row */
@@ -490,6 +504,7 @@
 		max-width: 100%;
 		min-width: 0;
 		box-sizing: border-box;
+		padding-right: var(--size-4-3);
 	}
 
 	/* Right-hand step trigger area: ONLY this area has cursor: pointer and triggers hover/click.

@@ -1,5 +1,14 @@
 import { describe, expect, test } from '@jest/globals';
-import { matchTimers, buildTimerUrl, formatTimerButtonText, formatDurationText } from './timers';
+import {
+    matchTimers,
+    buildTimerUrl,
+    formatTimerButtonText,
+    formatDurationText,
+    parseDurationToMinutes,
+    parseFrontmatterTimeMinutes,
+    calculateTotalTimerMinutes,
+    formatDuration,
+} from './timers';
 
 describe('matching @timer{...} syntax', () => {
     test('matches timer with minutes only', () => {
@@ -114,5 +123,42 @@ describe('formatting timer button text & smart durations', () => {
         expect(formatTimerButtonText('150', null, 'en')).toBe('⏱ 2 hrs 30 min');
         expect(formatTimerButtonText('90', null, 'compact')).toBe('⏱ 1h 30m');
         expect(formatDurationText('90', 'minutes')).toBe('90 Min');
+    });
+});
+
+describe('parsing durations with units and summing total timer minutes', () => {
+    test('parses plain minutes and unit strings into minutes', () => {
+        expect(parseDurationToMinutes('15')).toBe(15);
+        expect(parseDurationToMinutes('25 min')).toBe(25);
+        expect(parseDurationToMinutes('1.5 h')).toBe(90);
+        expect(parseDurationToMinutes('1h 15m')).toBe(75);
+        expect(parseDurationToMinutes('2 Std')).toBe(120);
+        expect(parseDurationToMinutes('90s')).toBe(1.5);
+    });
+
+    test('parses frontmatter time properties', () => {
+        expect(parseFrontmatterTimeMinutes(20)).toBe(20);
+        expect(parseFrontmatterTimeMinutes('20 Min')).toBe(20);
+        expect(parseFrontmatterTimeMinutes('1 Std. 15 Min')).toBe(75);
+        expect(parseFrontmatterTimeMinutes(null)).toBe(0);
+    });
+
+    test('calculates total timer minutes across recipe text while ignoring frontmatter and code blocks', () => {
+        const recipeText = `---
+type: rezept
+note: "@timer{999}"
+---
+1. Zwiebeln @timer{5|Anbraten} dünsten.
+2. Brühe zugeben und @timer{20 min|Köcheln} lassen (Beispiel \`@timer{100}\`).
+3. Im Ofen @timer{1h 10m|Überbacken}.
+        `;
+        expect(calculateTotalTimerMinutes(recipeText)).toBe(95);
+    });
+
+    test('formats summed numeric duration via formatDuration', () => {
+        expect(formatDuration(45)).toBe('45 Min');
+        expect(formatDuration(60)).toBe('1 Std.');
+        expect(formatDuration(75)).toBe('1 Std. 15 Min');
+        expect(formatDuration(75, 'en')).toBe('1 hr 15 min');
     });
 });

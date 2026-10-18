@@ -9,7 +9,14 @@ import Fraction from "fraction.js";
 import { matchQuantities } from "./quantities";
 import ScaledQuantity from "./ScaledQuantity.svelte";
 import { ComponentType } from "svelte";
-import { parseForTimers } from "./timers";
+import {
+    parseForTimers,
+    formatDuration,
+    calculateTotalTimerMinutes,
+    parseFrontmatterTimeMinutes,
+} from "./timers";
+
+export { formatDuration, calculateTotalTimerMinutes, parseFrontmatterTimeMinutes };
 
 export interface ParsedRecipeComponent {
     type: ComponentType;
@@ -38,6 +45,7 @@ export interface ParsedRecipe {
     globalIngredients: Array<ParsedRecipeComponent>;
     steps: Array<ParsedRecipeStep>;
     hasStepIngredients: boolean;
+    totalTimerMinutes: number;
     renderedMarkdownParent: HTMLElement;
     qtyScaleStore: Writable<Fraction>;
 }
@@ -397,6 +405,7 @@ export function parseRecipeMarkdown(
     // markdown needs to be wrapped in a RecipeLeaf, which ensures it doesn't get
     // destroyed if the components get rebuilt e.g. because the layout changes.
     const frontmatterCover = resolveCoverImage(plugin, metadata?.frontmatter, path);
+    const textTimerMinutes = calculateTotalTimerMinutes(text);
 
     const result: ParsedRecipe = {
         title: "",
@@ -412,14 +421,18 @@ export function parseRecipeMarkdown(
         globalIngredients: [],
         steps: [],
         hasStepIngredients: false,
+        totalTimerMinutes: textTimerMinutes,
         renderedMarkdownParent: createDiv(),
         qtyScaleStore: writable(new Fraction(1)),
     };
 
     MarkdownRenderer.render(plugin.app, text, result.renderedMarkdownParent, path, component);
 
-    // Transform inline @timer{...} syntax into clickable iOS Shortcut timer buttons
-    parseForTimers(result.renderedMarkdownParent, plugin.settings);
+    // Transform inline @timer{...} syntax into clickable iOS Shortcut timer buttons and sum total duration
+    const domTimerMinutes = parseForTimers(result.renderedMarkdownParent, plugin.settings);
+    if (result.totalTimerMinutes <= 0 && domTimerMinutes > 0) {
+        result.totalTimerMinutes = domTimerMinutes;
+    }
 
     const radioName = `selectable-steps-${get(store.counter)}`;
     store.counter.update((n) => n + 1);

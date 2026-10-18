@@ -119,3 +119,125 @@ body.is-mobile .recipe-view-reading-container {
   transform: scale(0.98);
   text-decoration: none !important;
 }
+
+/* Ensure left column of .recipe-step-row aligns flush (left: 0) with .global-ingredients-card */
+.recipe-step-row {
+  padding-inline: 0 !important;
+  box-sizing: border-box;
+}
+
+.recipe-step-row.is-selected,
+.recipe-step-row:has(input[type="radio"]:checked) {
+  box-shadow: 0 0 0 1px var(--interactive-accent);
+}
+
+/* Header metadata rows: Row 1 (.recipe-properties-row) & Row 2 (.recipe-time-bar) */
+.title-block .recipe-properties-row {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--size-2-1) var(--size-4-3);
+}
+
+.title-block .title-block-property {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--size-4-1);
+  font-size: var(--font-small);
+  line-height: 1.4;
+  border-radius: var(--radius-s);
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.title-block .title-block-property.is-editable {
+  cursor: pointer;
+  padding: 1px 4px;
+  margin: -1px -4px;
+}
+
+.title-block .title-block-property.is-editable:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.title-block .title-block-property .key {
+  color: var(--text-accent);
+  font-weight: 500;
+}
+
+.title-block .title-block-property .value {
+  color: var(--text-normal);
+}
+
+.title-block .title-block-property .value.placeholder {
+  color: var(--text-faint);
+}
+
+.title-block .recipe-time-bar {
+  display: flex;
+  gap: var(--size-4-2);
+  flex-wrap: wrap;
+  margin-top: var(--size-4-2);
+  align-items: center;
+}
+
+.title-block .recipe-time-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--size-4-1);
+  padding: 3px 10px;
+  background-color: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  font-size: var(--font-ui-small);
+  line-height: 1.4;
+  cursor: default;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.title-block .recipe-time-item.is-editable {
+  cursor: pointer;
+}
+
+.title-block .recipe-time-item.is-editable:hover {
+  border-color: var(--interactive-accent);
+  background-color: var(--background-modifier-hover);
+}
+
+.title-block .recipe-time-item .time-label {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.title-block .recipe-time-item .time-value {
+  color: var(--text-normal);
+  font-weight: 600;
+}
+
+.title-block .recipe-time-item .time-value.placeholder {
+  color: var(--text-faint);
+  font-weight: 400;
+}
+
+.title-block .recipe-time-item.recipe-time-total {
+  border-color: var(--interactive-accent);
+  background-color: hsla(
+    var(--accent-h),
+    var(--accent-s),
+    var(--accent-l),
+    0.1
+  );
+}
+
+.title-block .inline-fm-input {
+  width: 85px;
+  height: 1.5em;
+  padding: 1px 6px;
+  font-size: var(--font-ui-small);
+  border: 1px solid var(--interactive-accent);
+  border-radius: var(--radius-s);
+  background-color: var(--background-primary);
+  color: var(--text-normal);
+  outline: none;
+}
