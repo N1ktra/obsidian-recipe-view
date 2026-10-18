@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { CachedMetadata, TFile } from "obsidian";
+	import { CachedMetadata, Component, TFile } from "obsidian";
 	import RecipeCardTitleBlock from "./RecipeCardTitleBlock.svelte";
 	import RecipeViewPlugin from "./main";
 	import store from "./store";
@@ -9,7 +9,6 @@
 	import RecipeCardSplitSteps from "./RecipeCardSplitSteps.svelte";
 	import RecipeCardOneColumn from "./RecipeCardOneColumn.svelte";
 	import { ParsedRecipe, ParsedRecipeComponent } from "./parsing";
-	import { RecipeView } from "./recipe-view";
 
 	import { get } from "svelte/store";
 
@@ -20,7 +19,7 @@
 	export let parsedRecipe: ParsedRecipe;
 	export let metadata: CachedMetadata | undefined;
 	export let file: TFile;
-	export let view: RecipeView;
+	export let view: Component;
 
 	function extractBaseServings(
 		fm: Record<string, unknown> | undefined,

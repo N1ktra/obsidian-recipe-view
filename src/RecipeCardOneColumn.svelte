@@ -28,6 +28,10 @@
 </div>
 
 <style>
+	.recipe-card.one-column {
+		width: 100%;
+	}
+
 	.split-step {
 		display: flex;
 		flex-direction: row;
@@ -37,6 +41,7 @@
 
 	.split-step-title {
 		background-color: transparent !important;
+		padding-top: 0;
 	}
 
 	.split-step:nth-child(odd) {
@@ -44,15 +49,22 @@
 	}
 	.split-step.only-step {
 		background-color: transparent !important;
+		padding-top: 0;
 	}
 
 	.column-main {
-		flex-basis: var(--file-line-width);
-		flex-grow: 0;
-		flex-shrink: 1;
+		width: 100%;
+		max-width: var(--file-line-width, 100%);
+		flex: 1 1 var(--file-line-width, 100%);
 	}
+
+	:global(.markdown-preview-view:not(.is-readable-line-width)) .column-main {
+		max-width: 100%;
+		flex-basis: 100%;
+	}
+
 	.column {
-		padding-inline: var(--file-margins);
+		padding-inline: 0;
 	}
 	.column-title {
 		padding-bottom: 0;

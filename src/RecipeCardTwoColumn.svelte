@@ -32,43 +32,45 @@
 	.recipe-card {
 		display: flex;
 		flex-direction: row;
-		align-items: stretch;
+		align-items: flex-start;
 		justify-content: center;
-		height: 100%;
-		overflow: clip;
+		gap: var(--file-margins);
+		width: 100%;
 		position: relative;
-		top: 0;
-		left: 0;
-		right: 0;
-		bottom: 0;
 	}
 
 	.column {
-		padding: var(--file-margins);
-		max-height: 100%;
-		overflow-y: auto;
+		padding: 0;
+		min-width: 0;
 	}
 
 	.column-side {
-		flex-basis: calc(var(--file-line-width) / 2);
+		flex-basis: calc(var(--file-line-width, 700px) / 2);
 		flex-grow: 0;
 		flex-shrink: 1;
 	}
 
 	.column-main {
-		flex-basis: var(--file-line-width);
-		flex-grow: 0;
+		flex-basis: var(--file-line-width, 700px);
+		flex-grow: 1;
 		flex-shrink: 1;
+		max-width: var(--file-line-width, 100%);
+	}
+
+	:global(.markdown-preview-view:not(.is-readable-line-width)) .column-main {
+		max-width: 100%;
 	}
 
 	.split-step {
-		padding-inline: var(--file-margins);
-		margin-inline: calc(-1 * var(--file-margins));
+		padding-inline: var(--size-4-4);
+		margin-inline: calc(-1 * var(--size-4-4));
 		padding-block: calc(var(--file-margins) / 2);
+		border-radius: var(--radius-s);
 	}
 
 	.split-step-title {
 		background-color: transparent !important;
+		padding-top: 0;
 	}
 
 	.split-step:nth-child(odd) {
@@ -77,5 +79,6 @@
 
 	.split-step.only-step {
 		background-color: transparent !important;
+		padding-top: 0;
 	}
 </style>

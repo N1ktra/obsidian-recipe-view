@@ -40,7 +40,11 @@
 		flex-direction: row;
 		justify-content: center;
 		align-items: stretch;
+		gap: var(--file-margins);
 		padding-block: calc(var(--file-margins) / 2);
+		padding-inline: var(--size-4-4);
+		margin-inline: calc(-1 * var(--size-4-4));
+		border-radius: var(--radius-s);
 	}
 
 	.split-step:nth-child(odd) {
@@ -48,17 +52,19 @@
 	}
 
 	.split-step-title {
-		padding: var(--file-margins);
+		padding-block: 0 calc(var(--file-margins) / 2);
 		background-color: transparent !important;
 	}
 
 	.split-steps {
-		padding-block: var(--file-margins);
+		padding-block: 0;
+		width: 100%;
 	}
 
 	.column {
-		padding-inline: var(--file-margins);
+		padding-inline: 0;
 		display: block;
+		min-width: 0;
 	}
 
 	.column:empty {
@@ -66,15 +72,20 @@
 	}
 
 	.column-side {
-		flex-basis: calc(var(--file-line-width) / 2);
+		flex-basis: calc(var(--file-line-width, 700px) / 2);
 		flex-grow: 0;
 		flex-shrink: 1;
 	}
 
 	.column-main {
-		flex-basis: var(--file-line-width);
-		flex-grow: 0;
+		flex-basis: var(--file-line-width, 700px);
+		flex-grow: 1;
 		flex-shrink: 1;
+		max-width: var(--file-line-width, 100%);
+	}
+
+	:global(.markdown-preview-view:not(.is-readable-line-width)) .column-main {
+		max-width: 100%;
 	}
 
 	.column-content {

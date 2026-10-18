@@ -1,6 +1,5 @@
 <script lang="ts">
-	import { App, MarkdownRenderer, TFile } from "obsidian";
-	import { RecipeView } from "./recipe-view";
+	import { App, Component, MarkdownRenderer, TFile } from "obsidian";
 	import store from "./store";
 	import RecipeViewPlugin from "./main";
 
@@ -10,7 +9,7 @@
 	export let singleColumn: boolean;
 	export let app: App;
 	export let file: TFile;
-	export let view: RecipeView;
+	export let view: Component;
 
 	let plugin: RecipeViewPlugin;
 	store.plugin.subscribe((p) => (plugin = p));
@@ -109,21 +108,37 @@
 	.title-block {
 		display: flex;
 		flex-direction: row;
-		margin-block-end: var(--size-4-8);
+		align-items: flex-start;
+		gap: var(--size-4-4);
+		margin-block-end: var(--size-4-6);
+		width: 100%;
 	}
 	img.thumbnail {
-		height: var(--thumbnail-size);
-		width: var(--thumbnail-size);
+		height: var(--thumbnail-size, 150px);
+		width: var(--thumbnail-size, 150px);
 		object-fit: cover;
-		flex: 0 0 var(--thumbnail-size);
-		margin-inline-end: var(--size-4-4);
-		border-radius: var(--radius-s);
+		flex: 0 0 var(--thumbnail-size, 150px);
+		flex-shrink: 0;
+		margin: 0;
+		border-radius: var(--radius-m, var(--radius-s));
+	}
+	.metadata {
+		flex: 1 1 auto;
+		min-width: 0;
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+	}
+	.inline-title {
+		margin-block-start: 0;
+		margin-block-end: var(--size-4-2);
+		overflow-wrap: break-word;
 	}
 	.frontmatter {
 		display: flex;
-		flex-direction: flex-row;
+		flex-direction: row;
 		flex-wrap: wrap;
-		justify-content: start;
+		justify-content: flex-start;
 		gap: var(--size-2-1) var(--size-4-4);
 	}
 	.title-block-property {
@@ -136,13 +151,20 @@
 		font-weight: 500;
 	}
 
-	/* Single-column layout */
-	.single-column.title-block {
-		flex-direction: column;
-		justify-content: start;
-		align-items: start;
+	/* Single-column & mobile layout: keep cover thumbnail on the left and title/properties on the right */
+	.single-column.title-block,
+	:global(body.is-mobile) .title-block {
+		flex-direction: row;
+		align-items: flex-start;
 	}
-	.single-column img.thumbnail {
-		margin-bottom: var(--size-4-4);
+	.single-column img.thumbnail,
+	:global(body.is-mobile) img.thumbnail {
+		height: var(--thumbnail-size-mobile, 90px);
+		width: var(--thumbnail-size-mobile, 90px);
+		flex: 0 0 var(--thumbnail-size-mobile, 90px);
+		flex-shrink: 0;
+		object-fit: cover;
+		border-radius: var(--radius-m, var(--radius-s));
+		margin: 0;
 	}
 </style>

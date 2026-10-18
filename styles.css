@@ -10,6 +10,13 @@ settings:
     default: 150
     format: px
 
+  - id: thumbnail-size-mobile
+    title: Thumbnail size (Mobile / Single-column)
+    description: Size of the recipe thumbnail on mobile and single-column views in pixels
+    type: variable-number
+    default: 90
+    format: px
+
   - id: selected-step-alpha
     title: Selected step opacity
     description: The opacity of the background of the selected steps. Uses the accent colour set under "Appearance".
@@ -22,13 +29,26 @@ settings:
 
 :root {
   --thumbnail-size: 150px;
+  --thumbnail-size-mobile: 90px;
   --selected-step-alpha: 0.3;
 }
 
 .workspace-leaf-content[data-type="recipe-view"] .view-content {
-  padding: 0;
+  padding: var(--file-margins);
   font-size: var(--font-text-size);
   line-height: var(--line-height-tight);
+  overflow-y: auto;
+}
+
+/* Native Reading View integration */
+.markdown-preview-view.is-recipe-view-active > .markdown-preview-sizer {
+  display: none !important;
+}
+
+.recipe-view-reading-container {
+  width: 100%;
+  margin: 0;
+  padding: 0;
 }
 
 /* Inline iOS Shortcut Timer button (@timer{...}) */
