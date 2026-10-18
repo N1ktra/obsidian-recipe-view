@@ -1,9 +1,19 @@
 <script lang="ts">
 	import RecipeLeaf from "./RecipeLeaf.svelte";
+	import { highlightIngredientsInDom } from "./parsing";
 
 	export let list: HTMLOListElement | Array<HTMLElement>;
 	export let kind: string;
 	export let radioName: string;
+	export let highlightIngredients: Array<string> = [];
+
+	$: if (list && highlightIngredients && highlightIngredients.length > 0) {
+		if (Array.isArray(list)) {
+			list.forEach((el) => highlightIngredientsInDom(el, highlightIngredients));
+		} else {
+			highlightIngredientsInDom(list, highlightIngredients);
+		}
+	}
 
 	function olChildren() {
 		return (list as HTMLOListElement).children;

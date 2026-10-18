@@ -344,3 +344,273 @@ export function parseForTimers(node: Node, settings: TimerSettings): number {
     }
     return Number(total.toFixed(2));
 }
+
+export interface IngredientTagMatch {
+    index: number;
+    length: number;
+    name: string;
+}
+
+export const INGREDIENT_MARKER_REGEX =
+    /(?<![a-zA-ZäöüÄÖÜß0-9_.-])@(?:\{([^}\r\n]+)\}|([a-zA-ZäöüÄÖÜß0-9_-]+)(?![a-zA-ZäöüÄÖÜß0-9_{}-]))/g;
+
+/**
+ * Find all marked ingredient terms (`@Butter` or `@{brauner Zucker}`) in an ingredient line,
+ * explicitly excluding `@timer` directives.
+ */
+export function matchIngredientTags(str: string): Array<IngredientTagMatch> {
+    const results: Array<IngredientTagMatch> = [];
+    for (const match of str.matchAll(INGREDIENT_MARKER_REGEX)) {
+        const bracketedName = match[1]?.trim();
+        const singleWordName = match[2]?.trim();
+        if (singleWordName && singleWordName.toLowerCase() === "timer") {
+            continue;
+        }
+        const name = bracketedName || singleWordName;
+        if (!name) {
+            continue;
+        }
+        results.push({
+            index: match.index ?? 0,
+            length: match[0].length,
+            name,
+        });
+    }
+    return results;
+}
+
+/**
+ * Extract `@Word` and `@{Multi Word}` markers from an ingredient text string
+ * and return both the cleaned display text (without `@` or `{}`) and the extracted terms.
+ */
+export function extractMarkedIngredientsFromText(str: string): {
+    cleanedText: string;
+    extracted: Array<string>;
+} {
+    if (!str || !str.includes("@")) {
+        return { cleanedText: str, extracted: [] };
+    }
+
+    const matches = matchIngredientTags(str);
+    if (matches.length === 0) {
+        return { cleanedText: str, extracted: [] };
+    }
+
+    const extracted: Array<string> = [];
+    let cleanedText = "";
+    let currentIndex = 0;
+
+    for (const match of matches) {
+        if (match.index > currentIndex) {
+            cleanedText += str.slice(currentIndex, match.index);
+        }
+        cleanedText += match.name;
+        extracted.push(match.name);
+        currentIndex = match.index + match.length;
+    }
+
+    if (currentIndex < str.length) {
+        cleanedText += str.slice(currentIndex);
+    }
+
+    return { cleanedText, extracted };
+}
+
+/**
+ * Recursively walk an ingredient DOM subtree, strip `@` and `{}` from marked
+ * ingredient terms in text nodes, and return all extracted ingredient keywords.
+ */
+export function extractAndCleanIngredientListDom(node: Node): Array<string> {
+    if (node.nodeType === Node.ELEMENT_NODE) {
+        const el = node as HTMLElement;
+        if (
+            el.hasAttribute("data-timer") ||
+            el.classList.contains("recipe-timer-btn") ||
+            el.tagName === "CODE" ||
+            el.tagName === "PRE"
+        ) {
+            return [];
+        }
+    }
+
+    if (node.nodeType === Node.TEXT_NODE) {
+        const text = node.textContent || "";
+        if (!text.includes("@")) {
+            return [];
+        }
+        const { cleanedText, extracted } = extractMarkedIngredientsFromText(text);
+        if (extracted.length > 0) {
+            node.textContent = cleanedText;
+        }
+        return extracted;
+    }
+
+    const collected: Array<string> = [];
+    if (node.hasChildNodes()) {
+        Array.from(node.childNodes).forEach((child) => {
+            collected.push(...extractAndCleanIngredientListDom(child));
+        });
+    }
+    return collected;
+}
+
+/**
+ * Deduplicate (case-insensitively) and sort extracted ingredient keywords
+ * descending by character length so longer multi-word terms match first.
+ */
+export function sortHighlightIngredients(terms: Array<string>): Array<string> {
+    const seen = new Set<string>();
+    const unique: Array<string> = [];
+    for (const raw of terms) {
+        const trimmed = raw.trim();
+        if (!trimmed) continue;
+        const key = trimmed.toLowerCase();
+        if (!seen.has(key)) {
+            seen.add(key);
+            unique.push(trimmed);
+        }
+    }
+    return unique.sort((a, b) => b.length - a.length);
+}
+
+function escapeRegExp(str: string): string {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Build a case-insensitive RegExp that matches any of the given highlightIngredients
+ * at word boundaries (supporting German umlauts and hyphens).
+ */
+export function buildHighlightIngredientsRegex(
+    highlightIngredients: Array<string>
+): RegExp | null {
+    const sorted = sortHighlightIngredients(highlightIngredients);
+    if (sorted.length === 0) {
+        return null;
+    }
+    const pattern = sorted.map(escapeRegExp).join("|");
+    return new RegExp(
+        `(?<![a-zA-ZäöüÄÖÜß0-9_-])(${pattern})(?![a-zA-ZäöüÄÖÜß0-9_-])`,
+        "gi"
+    );
+}
+
+/**
+ * Find all occurrences of `highlightIngredients` in a step text string.
+ */
+export function matchHighlightedIngredientsInStep(
+    stepText: string,
+    highlightIngredients: Array<string>
+): Array<IngredientTagMatch> {
+    if (!stepText || !highlightIngredients || highlightIngredients.length === 0) {
+        return [];
+    }
+    const regex = buildHighlightIngredientsRegex(highlightIngredients);
+    if (!regex) {
+        return [];
+    }
+    const results: Array<IngredientTagMatch> = [];
+    for (const match of stepText.matchAll(regex)) {
+        const matchedText = match[1] || match[0];
+        results.push({
+            index: match.index ?? 0,
+            length: matchedText.length,
+            name: matchedText,
+        });
+    }
+    return results;
+}
+
+/**
+ * Recursively walk a step DOM subtree and wrap occurrences of `highlightIngredients`
+ * in text nodes with `<span class="recipe-ingredient-tag">Treffer</span>`.
+ * Skips timers, existing ingredient tags, scaled quantities, links, and code elements.
+ */
+export function highlightIngredientsInDom(
+    node: Node,
+    highlightIngredients: Array<string>
+): void {
+    if (!highlightIngredients || highlightIngredients.length === 0) {
+        return;
+    }
+    const regex = buildHighlightIngredientsRegex(highlightIngredients);
+    if (!regex) {
+        return;
+    }
+    highlightIngredientsWithRegex(node, regex);
+}
+
+function highlightIngredientsWithRegex(node: Node, regex: RegExp): void {
+    if (node.nodeType === Node.ELEMENT_NODE) {
+        const el = node as HTMLElement;
+        if (
+            el.hasAttribute("data-timer") ||
+            el.hasAttribute("data-ingredient-tag") ||
+            el.hasAttribute("data-qty") ||
+            el.hasAttribute("data-qty-no-parse") ||
+            el.classList.contains("recipe-timer-btn") ||
+            el.classList.contains("recipe-ingredient-tag") ||
+            el.tagName === "CODE" ||
+            el.tagName === "PRE" ||
+            el.tagName === "A"
+        ) {
+            return;
+        }
+    }
+
+    if (node.nodeType === Node.TEXT_NODE) {
+        const text = node.textContent || "";
+        if (!text.trim()) {
+            return;
+        }
+
+        regex.lastIndex = 0;
+        const matches = Array.from(text.matchAll(regex));
+        if (matches.length === 0) {
+            return;
+        }
+
+        const parent = node.parentNode;
+        if (!parent) {
+            return;
+        }
+
+        let currentIndex = 0;
+        for (const match of matches) {
+            const matchIndex = match.index ?? 0;
+            const matchedText = match[1] || match[0];
+            if (matchIndex > currentIndex) {
+                parent.insertBefore(
+                    document.createTextNode(text.slice(currentIndex, matchIndex)),
+                    node
+                );
+            }
+
+            const tagSpan = document.createElement("span");
+            tagSpan.className = "recipe-ingredient-tag";
+            tagSpan.setAttribute("data-ingredient-tag", "true");
+            tagSpan.setAttribute("data-qty-no-parse", "true");
+            tagSpan.textContent = matchedText;
+
+            parent.insertBefore(tagSpan, node);
+            currentIndex = matchIndex + matchedText.length;
+        }
+
+        if (currentIndex < text.length) {
+            parent.insertBefore(
+                document.createTextNode(text.slice(currentIndex)),
+                node
+            );
+        }
+
+        parent.removeChild(node);
+        return;
+    }
+
+    if (node.hasChildNodes()) {
+        Array.from(node.childNodes).forEach((child) => {
+            highlightIngredientsWithRegex(child, regex);
+        });
+    }
+}
+

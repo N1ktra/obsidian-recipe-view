@@ -16,6 +16,12 @@ import ScaledQuantity from "./ScaledQuantity.svelte";
 import { ComponentType } from "svelte";
 import {
     parseForTimers,
+    matchIngredientTags,
+    extractMarkedIngredientsFromText,
+    extractAndCleanIngredientListDom,
+    sortHighlightIngredients,
+    matchHighlightedIngredientsInStep,
+    highlightIngredientsInDom,
     formatDuration,
     calculateTotalTimerMinutes,
     parseFrontmatterTimeMinutes,
@@ -25,6 +31,12 @@ export {
     formatDuration,
     calculateTotalTimerMinutes,
     parseFrontmatterTimeMinutes,
+    matchIngredientTags,
+    extractMarkedIngredientsFromText,
+    extractAndCleanIngredientListDom,
+    sortHighlightIngredients,
+    matchHighlightedIngredientsInStep,
+    highlightIngredientsInDom,
     LEADING_CHECKBOX_REGEX,
     stripLeadingCheckboxSyntax,
 };
@@ -58,6 +70,7 @@ export interface ParsedRecipe {
     steps: Array<ParsedRecipeStep>;
     hasStepIngredients: boolean;
     totalTimerMinutes: number;
+    highlightIngredients: Array<string>;
     renderedMarkdownParent: HTMLElement;
     qtyScaleStore: Writable<Fraction>;
 }
@@ -65,10 +78,13 @@ export interface ParsedRecipe {
 /**
  * Clean a rendered <ul> ingredient list so native Obsidian task-list checkboxes
  * or raw "[ ]"/"[x]" prefixes are removed and converted into `data-checked` on each <li>.
+ * Also extracts `@Zutat` and `@{Mehrwort Zutat}` markers, strips `@` and `{}` from the
+ * visible ingredient text, and returns all extracted ingredient keywords.
  */
-export function sanitizeIngredientListElement(ulEl: HTMLElement): void {
+export function sanitizeIngredientListElement(ulEl: HTMLElement): Array<string> {
     ulEl.classList.remove("contains-task-list");
 
+    const extractedIngredients: Array<string> = [];
     const items = Array.from(ulEl.children).filter(
         (el): el is HTMLLIElement => el.nodeName === "LI"
     );
@@ -132,8 +148,11 @@ export function sanitizeIngredientListElement(ulEl: HTMLElement): void {
             }
         }
 
+        extractedIngredients.push(...extractAndCleanIngredientListDom(li));
         li.setAttribute("data-checked", isChecked ? "true" : "false");
     }
+
+    return extractedIngredients;
 }
 
 /**
@@ -299,6 +318,48 @@ function isHeadingComponent(c: ParsedRecipeComponent): boolean {
     );
 }
 
+function injectHighlightedIngredients(parsedRecipe: ParsedRecipe) {
+    if (!parsedRecipe.highlightIngredients || parsedRecipe.highlightIngredients.length === 0) {
+        return;
+    }
+
+    parsedRecipe.sections
+        .flatMap((s) => s.mainComponents)
+        .forEach((c) => {
+            if (isHeadingComponent(c)) {
+                return;
+            }
+            switch (c.type) {
+                case RecipeLeaf:
+                    highlightIngredientsInDom(
+                        c.props.childNodesOf as HTMLElement,
+                        parsedRecipe.highlightIngredients
+                    );
+                    break;
+
+                case SelectableStepList:
+                    c.props.highlightIngredients = parsedRecipe.highlightIngredients;
+                    if (c.props.kind == "ol") {
+                        highlightIngredientsInDom(
+                            c.props.list as HTMLElement,
+                            parsedRecipe.highlightIngredients
+                        );
+                    } else {
+                        (c.props.list as Array<HTMLElement>).forEach((p) => {
+                            highlightIngredientsInDom(
+                                p,
+                                parsedRecipe.highlightIngredients
+                            );
+                        });
+                    }
+                    break;
+
+                default:
+                    break;
+            }
+        });
+}
+
 function buildUnifiedRecipeStructure(
     result: ParsedRecipe,
     radioName: string
@@ -419,6 +480,7 @@ function buildUnifiedRecipeStructure(
                                     list: [liEl],
                                     kind: "p",
                                     radioName,
+                                    highlightIngredients: result.highlightIngredients,
                                 },
                                 origIndex: comp.origIndex,
                             },
@@ -449,6 +511,7 @@ function buildUnifiedRecipeStructure(
                                     list: [pEl],
                                     kind: "p",
                                     radioName,
+                                    highlightIngredients: result.highlightIngredients,
                                 },
                                 origIndex: comp.origIndex,
                             },
@@ -508,6 +571,7 @@ export function parseRecipeMarkdown(
         steps: [],
         hasStepIngredients: false,
         totalTimerMinutes: textTimerMinutes,
+        highlightIngredients: [],
         renderedMarkdownParent: createDiv(),
         qtyScaleStore: writable(new Fraction(1)),
     };
@@ -527,6 +591,7 @@ export function parseRecipeMarkdown(
 
     let currentSection = 0;
     let currentColumn: "sideComponents" | "mainComponents" = "mainComponents";
+    const rawHighlightIngredients: Array<string> = [];
 
     let sendToSideUntilLevel = 7;
     for (let i = 0; i < result.renderedMarkdownParent.children.length; i++) {
@@ -616,7 +681,8 @@ export function parseRecipeMarkdown(
         // - In explicit sideColumn sections -> globalIngredients
         // - In step sections (or directly before a step) -> stepIngredients of that step
         if (item.nodeName == "UL") {
-            sanitizeIngredientListElement(item as HTMLElement);
+            const extractedFromList = sanitizeIngredientListElement(item as HTMLElement);
+            rawHighlightIngredients.push(...extractedFromList);
 
             if (
                 currentColumn == "mainComponents" &&
@@ -709,7 +775,9 @@ export function parseRecipeMarkdown(
         });
     }
 
+    result.highlightIngredients = sortHighlightIngredients(rawHighlightIngredients);
     injectQuantities(result);
+    injectHighlightedIngredients(result);
     buildUnifiedRecipeStructure(result, radioName);
 
     return result;

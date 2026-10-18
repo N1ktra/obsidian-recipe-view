@@ -1,6 +1,10 @@
 import { describe, expect, test } from '@jest/globals';
 import {
     matchTimers,
+    matchIngredientTags,
+    extractMarkedIngredientsFromText,
+    sortHighlightIngredients,
+    matchHighlightedIngredientsInStep,
     buildTimerUrl,
     formatTimerButtonText,
     formatDurationText,
@@ -162,3 +166,53 @@ note: "@timer{999}"
         expect(formatDuration(75, 'en')).toBe('1 hr 15 min');
     });
 });
+
+describe('ingredient list marker extraction and automatic step highlighting', () => {
+    test('extracts @Zutat and @{Mehrwort Zutat} from ingredient lines and strips @ and {}', () => {
+        expect(extractMarkedIngredientsFromText('250 g @Butter')).toStrictEqual({
+            cleanedText: '250 g Butter',
+            extracted: ['Butter'],
+        });
+
+        expect(extractMarkedIngredientsFromText('150 g @{brauner Zucker}')).toStrictEqual({
+            cleanedText: '150 g brauner Zucker',
+            extracted: ['brauner Zucker'],
+        });
+
+        expect(
+            extractMarkedIngredientsFromText('2 EL @Olivenöl (extra vergine)')
+        ).toStrictEqual({
+            cleanedText: '2 EL Olivenöl (extra vergine)',
+            extracted: ['Olivenöl'],
+        });
+    });
+
+    test('excludes @timer directives and email addresses', () => {
+        expect(
+            matchIngredientTags(
+                'Gib @Butter hinzu und lasse es @timer{15|Köcheln} oder @timer ziehen (kontakt@example.com).'
+            )
+        ).toStrictEqual([
+            { index: 4, length: 7, name: 'Butter' },
+        ]);
+    });
+
+    test('sorts extracted highlightIngredients descending by length and deduplicates case-insensitively', () => {
+        expect(
+            sortHighlightIngredients(['Mehl', 'Zucker', 'brauner Zucker', 'zucker'])
+        ).toStrictEqual(['brauner Zucker', 'Zucker', 'Mehl']);
+    });
+
+    test('automatically matches extracted ingredient keywords in plain step text respecting word boundaries and longer terms first', () => {
+        const keywords = ['Zucker', 'brauner Zucker', 'Butter', 'Olivenöl'];
+        const stepText =
+            'Schmelze die Butter, rühre brauner Zucker sowie restlichen Zucker und etwas Olivenöl unter (keine Buttermilch).';
+        expect(matchHighlightedIngredientsInStep(stepText, keywords)).toStrictEqual([
+            { index: 13, length: 6, name: 'Butter' },
+            { index: 27, length: 14, name: 'brauner Zucker' },
+            { index: 59, length: 6, name: 'Zucker' },
+            { index: 76, length: 8, name: 'Olivenöl' },
+        ]);
+    });
+});
+
