@@ -82,6 +82,16 @@
 	$: twoColumnMainComponents =
 		parsedRecipe?.sections.map(({ mainComponents }) => mainComponents) ||
 		[];
+	$: isSplitStepsRecipe =
+		twoColumnSideComponents.length > 0 &&
+		twoColumnMainComponents.flat().length > 0 &&
+		((parsedRecipe?.sections.length ?? 0) > 3 ||
+			(parsedRecipe?.sections.filter(
+				(s) =>
+					!s.containsHeader &&
+					s.sideComponents.length > 0 &&
+					s.mainComponents.length > 0
+			).length ?? 0) >= 2);
 
 	// DOM searching and manipulating keyboard shortcuts
 	let container: HTMLDivElement;
@@ -178,7 +188,30 @@
 	on:keypress={handleKeypress}
 	role="document"
 >
-	{#if isBelowSingleColumnWidth != false || twoColumnSideComponents.length == 0 || twoColumnMainComponents.flat().length == 0}
+	{#if isSplitStepsRecipe}
+		<RecipeCardSplitSteps
+			sections={parsedRecipe?.sections}
+			singleColumn={Boolean(isBelowSingleColumnWidth)}
+		>
+			<ScaleSelector
+				slot="scaleselector"
+				bind:scale={qtyScale}
+				bind:scaleNum
+				{baseServings}
+			/>
+
+			<RecipeCardTitleBlock
+				slot="titleblock"
+				{title}
+				{frontmatter}
+				thumbnailPath={parsedRecipe?.thumbnailPath}
+				singleColumn={Boolean(isBelowSingleColumnWidth)}
+				app={plugin.app}
+				{file}
+				{view}
+			/>
+		</RecipeCardSplitSteps>
+	{:else if isBelowSingleColumnWidth != false || twoColumnSideComponents.length == 0 || twoColumnMainComponents.flat().length == 0}
 		<RecipeCardOneColumn
 			sideColumnComponents={twoColumnSideComponents}
 			mainColumnSections={twoColumnMainComponents}
@@ -201,7 +234,7 @@
 				{view}
 			/>
 		</RecipeCardOneColumn>
-	{:else if parsedRecipe?.sections.length <= 3}
+	{:else}
 		<RecipeCardTwoColumn
 			sideColumnComponents={twoColumnSideComponents}
 			mainColumnSections={twoColumnMainComponents}
@@ -224,26 +257,6 @@
 				{view}
 			/>
 		</RecipeCardTwoColumn>
-	{:else}
-		<RecipeCardSplitSteps sections={parsedRecipe?.sections}>
-			<ScaleSelector
-				slot="scaleselector"
-				bind:scale={qtyScale}
-				bind:scaleNum
-				{baseServings}
-			/>
-
-			<RecipeCardTitleBlock
-				slot="titleblock"
-				{title}
-				{frontmatter}
-				thumbnailPath={parsedRecipe?.thumbnailPath}
-				singleColumn={false}
-				app={plugin.app}
-				{file}
-				{view}
-			/>
-		</RecipeCardSplitSteps>
 	{/if}
 </div>
 
@@ -251,7 +264,10 @@
 	.container {
 		position: relative;
 		height: auto;
-		width: 100%;
+		width: 100% !important;
+		max-width: 100% !important;
+		box-sizing: border-box;
+		align-self: stretch;
 		display: block;
 	}
 
