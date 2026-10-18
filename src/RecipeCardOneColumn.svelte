@@ -19,7 +19,6 @@
 						<svelte:component
 							this={c.type}
 							{...c.props}
-							bullets={true}
 						/>
 					{/each}
 				</div>

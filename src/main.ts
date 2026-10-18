@@ -3,13 +3,18 @@ import { App, Plugin, PluginSettingTab, Setting, WorkspaceLeaf, addIcon } from '
 import { RecipeView, VIEW_TYPE_RECIPE } from './recipe-view';
 import store from './store';
 import { WHISK_SVG } from './whisk';
+import { parseForTimers } from './timers';
 
-interface RecipeViewPluginSettings {
+export interface RecipeViewPluginSettings {
 	sideColumnRegex: string;
 	treatH1AsFilename: boolean;
 	renderUnicodeFractions: boolean;
 	singleColumnMaxWidth: number;
 	showBulletsTwoColumn: boolean;
+	coverProperty: string;
+	servingsProperty: string;
+	timerShortcutName: string;
+	timerUrlTemplate: string;
 }
 
 const DEFAULT_SETTINGS: RecipeViewPluginSettings = {
@@ -18,6 +23,10 @@ const DEFAULT_SETTINGS: RecipeViewPluginSettings = {
 	renderUnicodeFractions: true,
 	singleColumnMaxWidth: 600,
 	showBulletsTwoColumn: false,
+	coverProperty: 'cover',
+	servingsProperty: 'servings',
+	timerShortcutName: 'StartTimer',
+	timerUrlTemplate: '',
 }
 
 export default class RecipeViewPlugin extends Plugin {
@@ -27,6 +36,10 @@ export default class RecipeViewPlugin extends Plugin {
 		await this.loadSettings();
 
 		this.registerView(VIEW_TYPE_RECIPE, (leaf) => new RecipeView(leaf, this));
+
+		this.registerMarkdownPostProcessor((el) => {
+			parseForTimers(el, this.settings);
+		});
 
 		addIcon("recipe-whisk", WHISK_SVG)
 		this.addRibbonIcon("recipe-whisk", "Toggle recipe view", () => {
@@ -131,6 +144,55 @@ class RecipeViewSettingsTab extends PluginSettingTab {
 				.setValue(this.plugin.settings!.treatH1AsFilename)
 				.onChange(async (value) => {
 					this.plugin.settings!.treatH1AsFilename = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Cover image frontmatter property')
+			.setDesc('Name of the frontmatter property that specifies the cover/hero image (e.g. "Pasted image ...png", wikilink, or URL). If empty or missing in a note, falls back to the first image in the note text.')
+			.addText(text => text
+				.setPlaceholder('cover')
+				.setValue(this.plugin.settings!.coverProperty)
+				.onChange(async (value) => {
+					this.plugin.settings!.coverProperty = value.trim() || 'cover';
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Servings frontmatter property')
+			.setDesc('Name of the frontmatter property for the default/base number of servings (defaults to 1 if not defined in frontmatter).')
+			.addText(text => text
+				.setPlaceholder('servings')
+				.setValue(this.plugin.settings!.servingsProperty)
+				.onChange(async (value) => {
+					this.plugin.settings!.servingsProperty = value.trim() || 'servings';
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName("iOS Shortcut timers (@timer{...})")
+			.setDesc("Configure how inline @timer{minutes} and @timer{minutes|Label} buttons launch iOS Shortcuts.")
+			.setHeading()
+
+		new Setting(containerEl)
+			.setName('Shortcut name')
+			.setDesc('Name of the iOS Shortcut to trigger when clicking a timer button.')
+			.addText(text => text
+				.setPlaceholder('StartTimer')
+				.setValue(this.plugin.settings!.timerShortcutName)
+				.onChange(async (value) => {
+					this.plugin.settings!.timerShortcutName = value.trim() || 'StartTimer';
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Custom URL template (optional)')
+			.setDesc('Optional custom URL template. Placeholders: <SHORTCUT_NAME>, <MINUTEN>, <URL_ENCODED_LABEL>, [|<URL_ENCODED_LABEL>]. Leave empty to use the default iOS Shortcuts URL scheme.')
+			.addText(text => text
+				.setPlaceholder('shortcuts://run-shortcut?name=<SHORTCUT_NAME>&input=text&text=<MINUTEN>[|<URL_ENCODED_LABEL>]')
+				.setValue(this.plugin.settings!.timerUrlTemplate)
+				.onChange(async (value) => {
+					this.plugin.settings!.timerUrlTemplate = value;
 					await this.plugin.saveSettings();
 				}));
 

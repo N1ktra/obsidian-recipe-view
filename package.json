@@ -1,8 +1,12 @@
 {
-	"name": "obsidian-recipe-view",
-	"version": "0.3.6",
-	"description": "View your notes as interactive recipe cards while you cook.",
+	"name": "obsidian-recipe-view-plus",
+	"version": "0.4.0",
+	"description": "View your notes as interactive recipe cards while you cook, with frontmatter cover images, servings scaling, and iOS Shortcut timers.",
 	"main": "main.js",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/N1ktra/obsidian-recipe-view.git"
+	},
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
 		"build": "svelte-check --workspace src && tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
@@ -10,8 +14,13 @@
 		"lint": "npx eslint src",
 		"test": "jest"
 	},
-	"keywords": [],
-	"author": "",
+	"keywords": [
+		"obsidian",
+		"obsidian-plugin",
+		"recipe",
+		"cooking"
+	],
+	"author": "N1ktra (Original by lachholden)",
 	"license": "MIT",
 	"devDependencies": {
 		"@jest/globals": "^29.7.0",

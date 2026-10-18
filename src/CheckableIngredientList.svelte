@@ -49,7 +49,9 @@
 
 <style>
 	ul {
-		padding-inline-start: 0;
+		list-style: none !important;
+		padding-inline-start: 0 !important;
+		margin-inline-start: 0 !important;
 	}
 
 	input[type="checkbox"] {
@@ -57,10 +59,29 @@
 		position: absolute;
 		margin: 0;
 		padding: 0;
+		pointer-events: none;
 	}
 
 	label {
 		position: relative;
+		display: flex;
+		align-items: baseline;
+		cursor: pointer;
+	}
+
+	.leaf {
+		flex: 1;
+		min-width: 0;
+	}
+
+	.leaf :global(.recipe-leaf),
+	.leaf :global(p) {
+		display: inline;
+		margin: 0;
+	}
+
+	.leaf :global(.list-bullet) {
+		display: none !important;
 	}
 
 	input[type="checkbox"]:checked ~ .leaf {
@@ -73,16 +94,32 @@
 	}
 
 	ul > li {
-		list-style-type: none;
+		list-style: none !important;
+		list-style-type: none !important;
 		margin-block: var(--list-spacing);
+		margin-inline-start: 0 !important;
+		padding-inline-start: 0 !important;
+	}
+
+	ul > li::marker {
+		content: none !important;
+		display: none !important;
 	}
 
 	ul.bullets > li {
-		list-style-type: square;
-		margin-inline-start: var(--list-indent);
+		list-style-type: square !important;
+		margin-inline-start: var(--list-indent) !important;
 	}
 
 	:global(.column-side) ul.bullets > li {
-		margin-inline-start: 0px;
+		margin-inline-start: 0px !important;
+	}
+
+	:global(body.is-mobile) ul > li,
+	:global(body.is-mobile) ul.bullets > li {
+		list-style: none !important;
+		list-style-type: none !important;
+		margin-inline-start: 0 !important;
+		padding-inline-start: 0 !important;
 	}
 </style>

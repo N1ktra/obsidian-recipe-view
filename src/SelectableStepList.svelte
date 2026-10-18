@@ -9,6 +9,10 @@
 		return (list as HTMLOListElement).children;
 	}
 
+	function olStart() {
+		return (list as HTMLOListElement).start || 1;
+	}
+
 	function olChild(index: number) {
 		return olChildren().item(index)! as HTMLElement;
 	}
@@ -26,8 +30,13 @@
 				<li>
 					<label>
 						<input type="radio" name={radioName} />
-						<div class="leaf">
-							<RecipeLeaf childNodesOf={olChild(i)} asTag="div" />
+						<div class="leaf step-flex">
+							<span class="step-number"
+								>{olStart() + i}.</span
+							>
+							<div class="step-body">
+								<RecipeLeaf childNodesOf={olChild(i)} asTag="div" />
+							</div>
 						</div>
 					</label>
 				</li>
@@ -51,8 +60,23 @@
 {/if}
 
 <style>
+	ol.recipe-mutex-select {
+		list-style: none !important;
+		padding-inline-start: 0 !important;
+		margin-inline-start: 0 !important;
+	}
+
 	li {
+		list-style: none !important;
+		list-style-type: none !important;
 		margin-block: var(--p-spacing);
+		margin-inline-start: 0 !important;
+		padding-inline-start: 0 !important;
+	}
+
+	li::marker {
+		content: none !important;
+		display: none !important;
 	}
 
 	input[type="radio"] {
@@ -67,6 +91,8 @@
 
 	label {
 		position: relative;
+		display: block;
+		cursor: pointer;
 	}
 
 	.leaf {
@@ -75,12 +101,35 @@
 		margin: calc(-1 * var(--size-4-2));
 	}
 
-	:global(body:not(.is-mobile)) li .leaf {
-		/* on desktop, include number in selected step
-           -> operates weirdly on mobile, so there just leave default spacing 
-		*/
-		padding-inline-start: var(--list-indent);
-		margin-inline-start: calc(-1 * var(--list-indent));
+	.leaf.step-flex {
+		display: flex;
+		flex-direction: row;
+		align-items: baseline;
+		gap: var(--size-4-2);
+	}
+
+	.step-number {
+		flex-shrink: 0;
+		color: var(--list-marker-color, var(--text-muted));
+		font-variant-numeric: tabular-nums;
+		min-width: 1.4em;
+	}
+
+	.step-body {
+		flex: 1;
+		min-width: 0;
+	}
+
+	.step-body :global(p:first-child) {
+		margin-block-start: 0;
+	}
+
+	.step-body :global(p:last-child) {
+		margin-block-end: 0;
+	}
+
+	.step-body :global(.list-bullet) {
+		display: none !important;
 	}
 
 	input[type="radio"]:checked ~ .leaf {

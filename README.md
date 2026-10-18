@@ -2,17 +2,11 @@
 
 <img src="docs/_static/Whisk.png" style="width:200px">
 
-# 🧑‍🍳 Obsidian Recipe View 🥘
+# 🧑‍🍳 Obsidian Recipe View Plus 🥘
 
-<a href="https://github.com/lachholden/obsidian-recipe-view/releases/latest">![Obsidian release version badge](https://img.shields.io/github/v/release/lachholden/obsidian-recipe-view?logo=obsidian&color=rgb(125%2C58%2C237))</a>
-<a href="https://github.com/lachholden/obsidian-recipe-view/blob/release/LICENSE">![License](https://img.shields.io/github/license/lachholden/obsidian-recipe-view?color=blue)</a>
-<a href="https://github.com/lachholden/obsidian-recipe-view/actions/workflows/npm_build.yml">![Build status](https://img.shields.io/github/actions/workflow/status/lachholden/obsidian-recipe-view/npm_build.yml)</a>
-[![Documentation Status](https://readthedocs.org/projects/obsidian-recipe-view/badge/?version=latest)](https://obsidian-recipe-view.readthedocs.io/en/latest/?badge=latest)
+<a href="https://github.com/N1ktra/obsidian-recipe-view/blob/master/LICENSE">![License](https://img.shields.io/badge/license-MIT-blue)</a>
 
-
-<a href='https://ko-fi.com/L4L5PUX5B' target='_blank'><img height='36' style='border:0px;height:36px;' src='https://storage.ko-fi.com/cdn/kofi3.png?v=3' border='0' alt='Buy Me a Coffee at ko-fi.com' /></a>
-
-*Bring Obsidian with you into the kitchen*
+*Bring Obsidian with you into the kitchen — enhanced fork of Obsidian Recipe View*
 
 </div>
 
@@ -21,42 +15,55 @@
 
 ---
 
-Store, write, and manage your recipes in as regular Obsidian notes in **portable, future-proof markdown**, then view them as a gorgeous **interactive recipe card** when it's time to cook in the kitchen.
+Store, write, and manage your recipes as regular Obsidian notes in **portable, future-proof markdown**, then view them as a gorgeous **interactive recipe card** when it's time to cook in the kitchen.
 
 **Features include:**
 - 📒 Works with your recipes as-is, in whatever format you like to write them
-- 🎨 Strives for maximum compatability with custom themes
+- 🎨 Strives for maximum compatibility with custom themes
 - 🌈 Lets you use all the markdown that works in the rest of your vault
-- ⚖️ Scales the quantities in your recipes easily
-* ⚙️ Can split your recipes into two columns or separate ingredients out by step, for easier reference while cooking
+- ⚖️ Scales the quantities in your recipes easily (with `servings` frontmatter support as the base scaling value)
+- 🖼️ Loads cover/hero images directly from frontmatter (default property: `cover`) with fallback to the first note image
+- ⏱️ Inline iOS Shortcut timer syntax (`@timer{30}` or `@timer{30|Teig ruhen}`) rendered as styled, clickable timer buttons
+- ⚙️ Can split your recipes into two columns or separate ingredients out by step, for easier reference while cooking
 - ✅ Makes ingredient lists cross-out-able
 - 📌 Lets you highlight steps to keep track of where you're up to
-- 📱 Works on phones and tablets
+- 📱 Optimized for phones (iOS/Android), tablets, and desktop
 
-**Why keep your recipes in Obsidian?**
-- 🗃 Portable and future-proof markdown
-- 📝 Everything is a note – keep your nicely formatted recipes in the same folders as your scanned magazine clippings
-- 🌏 Cross-link and tag your recipes, link them to notes on technique, keep a baking log in your daily notes, or use Dataview or Kanban to plan out your cooking
-- ☁️ Write them on your laptop, check ingredients in the store on your phone, and cook from them in the kitchen with your iPad
+## New in Recipe View Plus
 
-## Installation
-This plugin can be installed using the usual [Obsidian community plugins browser](obsidian://show-plugin?id=recipe-view).
+### 1. Inline iOS Shortcut Timers (`@timer{...}`)
+Use `@timer{minutes}` or `@timer{minutes|Label}` anywhere in your recipe steps:
+- `@timer{30|Teig ruhen}` renders as `⏱ 30 Min (Teig ruhen)`
+- Clicking triggers the iOS Shortcuts URL scheme:
+  `shortcuts://run-shortcut?name=StartTimer&input=text&text=30|Teig%20ruhen`
+- Both the Shortcut name (default: `StartTimer`) and an optional custom URL template can be configured in the plugin settings.
 
-Beta versions can also be installed using [BRAT](https://github.com/TfTHacker/obsidian42-brat). Just add the URL `https://github.com/lachholden/obsidian-recipe-view` as a beta plugin.
+### 2. Cover Image via Frontmatter
+Define your recipe's hero image in the YAML frontmatter using the `cover` property (configurable in settings):
+```yaml
+---
+cover: "Pasted image 20261018.png"
+servings: 4
+---
+```
+Supports vault filenames/paths, wikilinks (`[[image.png]]`), markdown links, and external URLs. If omitted or empty, it falls back to the first image in the note.
 
-## Documentation
-To learn how to use the plugin, **[read the documentation here!](https://obsidian-recipe-view.readthedocs.io/)**
+### 3. Base Servings (`servings`) & Mobile Fixes
+- Reads `servings` from frontmatter (default `1`) and uses it as the initial base scaling value.
+- Fixed mobile rendering issues for ingredient lists (no unwanted square bullets or line breaks), ordered step lists (flexbox alignment for step numbers and text), and the mobile scale input display.
 
 ## Additional settings
 The [Style Settings](https://github.com/mgmeyers/obsidian-style-settings) plugin will let you configure aspects of how the recipe card appears.
 
-## Attribution
-- Recipes used in the screenshot examples
-    - [Tasty.co's Chewy Chocolate Chip Cookies  ](https://tasty.co/recipe/the-best-chewy-chocolate-chip-cookies)
+## Credits & Attribution
+- **Original Plugin**: Forked from [Obsidian Recipe View](https://github.com/lachholden/obsidian-recipe-view) originally created by **[lachholden](https://github.com/lachholden)** under the [MIT License](LICENSE).
+- Recipes used in the screenshot examples:
+    - [Tasty.co's Chewy Chocolate Chip Cookies](https://tasty.co/recipe/the-best-chewy-chocolate-chip-cookies)
     - [Leite's Culinaria's Pastéis de Nata / Portuguese Custard Tarts](https://leitesculinaria.com/7759/recipes-pasteis-de-nata.html)
-- Themes used in the screenshot examples
+- Themes used in the screenshot examples:
     - Default Obsidian theme with Orange accent
     - [Damian Korcz's excellent Prism Theme](https://github.com/damiankorcz/Prism-Theme)
-- In logo, top preview image, & social media preview
+- In logo, top preview image, & social media preview:
     - Photo by <a href="https://unsplash.com/@andyc?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText">Andy Chilton</a> on <a href="https://unsplash.com/photos/0JFveX0c778?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText">Unsplash</a>
+
   

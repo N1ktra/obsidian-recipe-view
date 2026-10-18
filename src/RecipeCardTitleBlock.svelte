@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { App, MarkdownRenderer, TFile } from "obsidian";
 	import { RecipeView } from "./recipe-view";
+	import store from "./store";
+	import RecipeViewPlugin from "./main";
 
 	export let thumbnailPath: string | undefined;
 	export let title: string;
@@ -10,7 +12,20 @@
 	export let file: TFile;
 	export let view: RecipeView;
 
+	let plugin: RecipeViewPlugin;
+	store.plugin.subscribe((p) => (plugin = p));
+
 	function formatFrontmatterValue(key: string, value: any) {
+		const coverKey = (plugin?.settings?.coverProperty || "cover").trim() || "cover";
+		if (
+			key === coverKey ||
+			key === "position" ||
+			key === "cssclasses" ||
+			key === "cssclass"
+		) {
+			return undefined;
+		}
+
 		// See if it's a URL
 		try {
 			let url = new URL(value);
@@ -23,7 +38,7 @@
 		}
 
 		// See if it's tags
-		if (key == "tags") {
+		if (key == "tags" && Array.isArray(value)) {
 			return value
 				.map((tag: string) => {
 					let a = createEl("a", {
@@ -36,6 +51,10 @@
 					return a.outerHTML;
 				})
 				.join(" ");
+		}
+
+		if (typeof value === "number" || typeof value === "boolean") {
+			return String(value);
 		}
 
 		if (typeof value === "string" || value instanceof String) {

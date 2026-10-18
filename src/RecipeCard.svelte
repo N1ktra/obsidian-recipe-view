@@ -11,7 +11,9 @@
 	import { ParsedRecipe, ParsedRecipeComponent } from "./parsing";
 	import { RecipeView } from "./recipe-view";
 
-	let plugin: RecipeViewPlugin;
+	import { get } from "svelte/store";
+
+	let plugin: RecipeViewPlugin = get(store.plugin);
 	store.plugin.subscribe((p) => (plugin = p));
 
 	// Props to be passed in
@@ -20,14 +22,58 @@
 	export let file: TFile;
 	export let view: RecipeView;
 
-	// Recipe scaling - create store here to pass to all children via ctx
-	let scaleNum = 1;
-	let qtyScale: Fraction;
-	$: parsedRecipe?.qtyScaleStore.set(qtyScale);
+	function extractBaseServings(
+		fm: Record<string, unknown> | undefined,
+		propName: string
+	): number {
+		if (!fm) return 1;
+		const key = (propName || "servings").trim() || "servings";
+		const raw = fm[key] ?? fm["servings"];
+		if (typeof raw === "number" && isFinite(raw) && raw > 0) {
+			return raw;
+		}
+		if (typeof raw === "string") {
+			const match = raw.match(/(\d+(?:[.,]\d+)?)/);
+			if (match) {
+				const parsed = parseFloat(match[1].replace(",", "."));
+				if (isFinite(parsed) && parsed > 0) {
+					return parsed;
+				}
+			}
+		}
+		return 1;
+	}
+
+	// Titleblock & frontmatter variables
+	$: title = parsedRecipe.title ? parsedRecipe.title : file.basename;
+	$: frontmatter = metadata?.frontmatter || {};
+	$: baseServings = extractBaseServings(
+		frontmatter,
+		plugin?.settings?.servingsProperty || "servings"
+	);
+
+	// Recipe scaling - initialize with baseServings from frontmatter (default: 1)
+	let lastBaseServings: number | null = null;
+	let scaleNum: number | null = extractBaseServings(
+		metadata?.frontmatter,
+		plugin?.settings?.servingsProperty || "servings"
+	);
+	$: {
+		if (baseServings !== lastBaseServings) {
+			lastBaseServings = baseServings;
+			scaleNum = baseServings;
+		}
+	}
+
+	let qtyScale: Fraction = new Fraction(1);
+	$: if (qtyScale) {
+		parsedRecipe?.qtyScaleStore.set(qtyScale);
+	}
 
 	// Determining the recipe format
 	let containerWidth: number;
 	$: isBelowSingleColumnWidth =
+		!containerWidth ||
 		containerWidth < plugin.settings.singleColumnMaxWidth;
 	$: twoColumnSideComponents =
 		parsedRecipe?.sections.flatMap(
@@ -44,10 +90,6 @@
 					a.origIndex - b.origIndex
 			)
 	);
-
-	// Titleblock variables
-	$: title = parsedRecipe.title ? parsedRecipe.title : file.basename;
-	$: frontmatter = metadata?.frontmatter || {};
 
 	// DOM searching and manipulating keyboard shortcuts
 	let container: HTMLDivElement;
@@ -113,16 +155,18 @@
 		} else if (e.key == "k") {
 			retreatStep();
 		} else if (e.key == "[") {
-			if (scaleNum) {
-				scaleNum -= 0.25;
+			const step = baseServings > 1 ? 1 : 0.25;
+			if (scaleNum && scaleNum > step) {
+				scaleNum = Number((scaleNum - step).toFixed(2));
 			} else {
-				scaleNum = 0.75;
+				scaleNum = step;
 			}
 		} else if (e.key == "]") {
+			const step = baseServings > 1 ? 1 : 0.25;
 			if (scaleNum) {
-				scaleNum += 0.25;
+				scaleNum = Number((scaleNum + step).toFixed(2));
 			} else {
-				scaleNum = 1.25;
+				scaleNum = baseServings + step;
 			}
 		} else if (e.key == "h") {
 			checkNext(true);
@@ -148,6 +192,7 @@
 				slot="scaleselector"
 				bind:scale={qtyScale}
 				bind:scaleNum
+				{baseServings}
 			/>
 
 			<RecipeCardTitleBlock
@@ -170,6 +215,7 @@
 				slot="scaleselector"
 				bind:scale={qtyScale}
 				bind:scaleNum
+				{baseServings}
 			/>
 
 			<RecipeCardTitleBlock
@@ -189,6 +235,7 @@
 				slot="scaleselector"
 				bind:scale={qtyScale}
 				bind:scaleNum
+				{baseServings}
 			/>
 
 			<RecipeCardTitleBlock
