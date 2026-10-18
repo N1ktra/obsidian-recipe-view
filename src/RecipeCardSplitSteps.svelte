@@ -504,7 +504,7 @@
 		max-width: 100%;
 		min-width: 0;
 		box-sizing: border-box;
-		padding-right: var(--size-4-3);
+		padding: 0;
 	}
 
 	/* Right-hand step trigger area: ONLY this area has cursor: pointer and triggers hover/click.
@@ -519,7 +519,7 @@
 		gap: var(--size-4-2);
 		background-color: transparent;
 		border: none;
-		padding: var(--size-4-1) 0;
+		padding: var(--size-4-2) var(--size-4-3);
 		cursor: pointer;
 		-webkit-tap-highlight-color: transparent;
 	}

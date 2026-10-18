@@ -6,7 +6,12 @@ import { CachedMetadata, Component, MarkdownRenderer, TFile } from "obsidian";
 import store from "./store";
 import { Writable, get, writable } from "svelte/store";
 import Fraction from "fraction.js";
-import { matchQuantities } from "./quantities";
+import {
+    matchQuantities,
+    LEADING_CHECKBOX_REGEX,
+    ParsedCheckboxText,
+    stripLeadingCheckboxSyntax,
+} from "./quantities";
 import ScaledQuantity from "./ScaledQuantity.svelte";
 import { ComponentType } from "svelte";
 import {
@@ -16,7 +21,14 @@ import {
     parseFrontmatterTimeMinutes,
 } from "./timers";
 
-export { formatDuration, calculateTotalTimerMinutes, parseFrontmatterTimeMinutes };
+export {
+    formatDuration,
+    calculateTotalTimerMinutes,
+    parseFrontmatterTimeMinutes,
+    LEADING_CHECKBOX_REGEX,
+    stripLeadingCheckboxSyntax,
+};
+export type { ParsedCheckboxText };
 
 export interface ParsedRecipeComponent {
     type: ComponentType;
@@ -48,6 +60,80 @@ export interface ParsedRecipe {
     totalTimerMinutes: number;
     renderedMarkdownParent: HTMLElement;
     qtyScaleStore: Writable<Fraction>;
+}
+
+/**
+ * Clean a rendered <ul> ingredient list so native Obsidian task-list checkboxes
+ * or raw "[ ]"/"[x]" prefixes are removed and converted into `data-checked` on each <li>.
+ */
+export function sanitizeIngredientListElement(ulEl: HTMLElement): void {
+    ulEl.classList.remove("contains-task-list");
+
+    const items = Array.from(ulEl.children).filter(
+        (el): el is HTMLLIElement => el.nodeName === "LI"
+    );
+
+    for (const li of items) {
+        let isChecked = li.getAttribute("data-checked") === "true";
+
+        const dataTask = li.getAttribute("data-task");
+        if (
+            li.classList.contains("is-checked") ||
+            (dataTask != null && dataTask.trim().toLowerCase() === "x")
+        ) {
+            isChecked = true;
+        }
+        li.classList.remove("task-list-item", "is-checked");
+        li.removeAttribute("data-task");
+
+        const nativeCheckboxes = Array.from(
+            li.querySelectorAll(
+                'input[type="checkbox"]:not(.recipe-ingredient-checkbox), .task-list-item-checkbox:not(.recipe-ingredient-checkbox)'
+            )
+        ) as Array<HTMLInputElement>;
+
+        if (nativeCheckboxes.length > 0) {
+            if (
+                nativeCheckboxes.some(
+                    (cb) => cb.checked || cb.hasAttribute("checked")
+                )
+            ) {
+                isChecked = true;
+            }
+            nativeCheckboxes.forEach((cb) => cb.remove());
+        }
+
+        const walker = document.createTreeWalker(li, NodeFilter.SHOW_TEXT);
+        let firstTextNode: Text | null = null;
+        while (walker.nextNode()) {
+            const current = walker.currentNode as Text;
+            if ((current.textContent || "").trim().length > 0) {
+                firstTextNode = current;
+                break;
+            } else if (current.textContent) {
+                current.textContent = "";
+            }
+        }
+
+        if (firstTextNode && firstTextNode.textContent) {
+            const parsed = stripLeadingCheckboxSyntax(
+                firstTextNode.textContent
+            );
+            if (parsed.hasCheckbox) {
+                if (parsed.checked) {
+                    isChecked = true;
+                }
+                firstTextNode.textContent = parsed.text;
+            } else if (nativeCheckboxes.length > 0 || dataTask != null) {
+                firstTextNode.textContent = firstTextNode.textContent.replace(
+                    /^\s+/,
+                    ""
+                );
+            }
+        }
+
+        li.setAttribute("data-checked", isChecked ? "true" : "false");
+    }
 }
 
 /**
@@ -530,6 +616,8 @@ export function parseRecipeMarkdown(
         // - In explicit sideColumn sections -> globalIngredients
         // - In step sections (or directly before a step) -> stepIngredients of that step
         if (item.nodeName == "UL") {
+            sanitizeIngredientListElement(item as HTMLElement);
+
             if (
                 currentColumn == "mainComponents" &&
                 result.sections[currentSection].mainComponents.some(

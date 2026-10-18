@@ -49,10 +49,15 @@ settings:
   padding-top: 0;
   padding-inline: 0;
   padding-bottom: max(25vh, 120px);
+  touch-action: pan-x pan-y;
 }
 
 body.is-mobile .recipe-view-reading-container {
   padding-bottom: max(45vh, 200px);
+}
+
+.recipe-card {
+  touch-action: pan-x pan-y;
 }
 
 .recipe-card-split-steps,
@@ -120,10 +125,27 @@ body.is-mobile .recipe-view-reading-container {
   text-decoration: none !important;
 }
 
-/* Ensure left column of .recipe-step-row aligns flush (left: 0) with .global-ingredients-card */
+/* Ensure left column of .recipe-step-row aligns flush (left: 0) with .global-ingredients-card
+   while .step-card-main provides a comfortable buffer around step numbers and text */
 .recipe-step-row {
   padding-inline: 0 !important;
   box-sizing: border-box;
+}
+
+.recipe-step-row *,
+.top-step-item,
+.top-step-item * {
+  box-sizing: border-box;
+}
+
+.step-right-cell {
+  box-sizing: border-box;
+  padding: 0;
+}
+
+.step-card-main {
+  box-sizing: border-box;
+  padding: var(--size-4-2) var(--size-4-3);
 }
 
 .recipe-step-row.is-selected,

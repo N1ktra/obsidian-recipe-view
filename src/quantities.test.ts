@@ -1,6 +1,12 @@
 import { describe, expect, test } from '@jest/globals';
 import Fraction from "fraction.js";
-import { reUnicodeFractions, matchQuantities, QtyFormatType, formatQuantity } from './quantities'
+import {
+    reUnicodeFractions,
+    matchQuantities,
+    QtyFormatType,
+    formatQuantity,
+    stripLeadingCheckboxSyntax,
+} from './quantities'
 
 describe('re-unicoding fractions', () => {
     test('converts a lone fraction', () => {
@@ -259,5 +265,41 @@ describe('formatting scaled quantities', () => {
         ).toBe(
             "3/4"
         );
+    });
+});
+
+describe('stripping leading Markdown checkbox syntax from ingredients', () => {
+    test('strips unchecked [ ] and [] prefixes', () => {
+        expect(stripLeadingCheckboxSyntax('[ ] 100 g Mehl')).toStrictEqual({
+            text: '100 g Mehl',
+            hasCheckbox: true,
+            checked: false,
+        });
+        expect(stripLeadingCheckboxSyntax('[] 200 ml Milch')).toStrictEqual({
+            text: '200 ml Milch',
+            hasCheckbox: true,
+            checked: false,
+        });
+    });
+
+    test('strips checked [x] and [X] prefixes and sets checked = true', () => {
+        expect(stripLeadingCheckboxSyntax('[x] 1 Prise Salz')).toStrictEqual({
+            text: '1 Prise Salz',
+            hasCheckbox: true,
+            checked: true,
+        });
+        expect(stripLeadingCheckboxSyntax('  [X] 2 Eier')).toStrictEqual({
+            text: '2 Eier',
+            hasCheckbox: true,
+            checked: true,
+        });
+    });
+
+    test('leaves regular ingredient strings untouched', () => {
+        expect(stripLeadingCheckboxSyntax('250 g Butter')).toStrictEqual({
+            text: '250 g Butter',
+            hasCheckbox: false,
+            checked: false,
+        });
     });
 });

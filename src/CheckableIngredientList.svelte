@@ -1,8 +1,13 @@
 <script lang="ts">
 	import RecipeLeaf from "./RecipeLeaf.svelte";
+	import { sanitizeIngredientListElement } from "./parsing";
 
 	export let list: HTMLUListElement;
 	export let bullets: boolean;
+
+	$: if (list) {
+		sanitizeIngredientListElement(list);
+	}
 
 	function isChecked(index: number): boolean {
 		return (
@@ -92,7 +97,8 @@
 		margin: 0;
 	}
 
-	.leaf :global(.list-bullet) {
+	.leaf :global(.list-bullet),
+	.leaf :global(input[type="checkbox"]) {
 		display: none !important;
 	}
 

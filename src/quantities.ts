@@ -98,3 +98,32 @@ export function formatQuantity(value: Fraction, format: QtyFormatType, scale: Fr
         return value.toString();
     }
 }
+
+export const LEADING_CHECKBOX_REGEX = /^\s*\[([ xX])?\]\s*/;
+
+export interface ParsedCheckboxText {
+    text: string;
+    hasCheckbox: boolean;
+    checked: boolean;
+}
+
+/**
+ * Strip a leading Markdown checkbox token (e.g. "[ ] ", "[x] ", "[X] ", "[] ")
+ * from an ingredient string and determine its initial checked state.
+ */
+export function stripLeadingCheckboxSyntax(raw: string): ParsedCheckboxText {
+    const match = raw.match(LEADING_CHECKBOX_REGEX);
+    if (!match) {
+        return {
+            text: raw,
+            hasCheckbox: false,
+            checked: false,
+        };
+    }
+    const marker = (match[1] || "").toLowerCase();
+    return {
+        text: raw.slice(match[0].length),
+        hasCheckbox: true,
+        checked: marker === "x",
+    };
+}

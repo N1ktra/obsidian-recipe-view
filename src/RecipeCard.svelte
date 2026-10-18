@@ -178,6 +178,52 @@
 		}
 	}
 
+	let lastTapTime = 0;
+	let lastTapTarget: EventTarget | null = null;
+
+	function handleDblClick(e: MouseEvent) {
+		const target = e.target as HTMLElement | null;
+		if (target?.closest("input.inline-fm-input, input[type='number']")) {
+			return;
+		}
+		e.preventDefault();
+		e.stopPropagation();
+	}
+
+	function handleTouchEnd(e: TouchEvent) {
+		const now = Date.now();
+		const target = e.target as HTMLElement | null;
+		const isInteractiveControl = Boolean(
+			target?.closest(
+				"input, button, a, label, .scale-btn, .is-editable, .recipe-ingredient-checkbox"
+			)
+		);
+
+		if (
+			!isInteractiveControl &&
+			lastTapTime > 0 &&
+			now - lastTapTime < 320 &&
+			lastTapTarget === e.target
+		) {
+			if (e.cancelable) {
+				e.preventDefault();
+			}
+			e.stopPropagation();
+			lastTapTime = 0;
+			lastTapTarget = null;
+			return;
+		}
+
+		// Prevent rapid taps (e.g. checking ingredients or tapping +/- stepper) from
+		// bubbling up to Obsidian's mobile .markdown-preview-view double-tap-to-edit handler
+		if (lastTapTime > 0 && now - lastTapTime < 320) {
+			e.stopPropagation();
+		}
+
+		lastTapTime = now;
+		lastTapTarget = e.target;
+	}
+
 	function handleKeypress(e: KeyboardEvent) {
 		if (e.key == "n") {
 			checkNext(false);
@@ -217,6 +263,8 @@
 	bind:clientWidth={containerWidth}
 	bind:this={container}
 	on:keypress={handleKeypress}
+	on:dblclick={handleDblClick}
+	on:touchend={handleTouchEnd}
 	role="document"
 >
 	<RecipeCardSplitSteps
@@ -255,6 +303,7 @@
 		box-sizing: border-box;
 		align-self: stretch;
 		display: block;
+		touch-action: pan-x pan-y;
 	}
 
 	/* Hide strange mobile frontmatter stuff */
