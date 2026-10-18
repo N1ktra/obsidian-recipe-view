@@ -54,6 +54,7 @@ interface MountedReadingRecipe {
 	card: RecipeCard;
 	containerEl: HTMLElement;
 	previewViewEl: HTMLElement;
+	onScrollCapture: (e: Event) => void;
 	signature: string;
 }
 
@@ -231,6 +232,18 @@ export default class RecipeViewPlugin extends Plugin {
 			cls: "recipe-view-reading-container",
 		});
 
+		// Prevent Obsidian's internal MarkdownPreviewRenderer virtualizer from
+		// recalculating hidden section heights on scroll and jumping scrollTop back up
+		const onScrollCapture = (e: Event) => {
+			if (previewViewEl.classList.contains("is-recipe-view-active")) {
+				e.stopImmediatePropagation();
+			}
+		};
+		previewViewEl.addEventListener("scroll", onScrollCapture, {
+			capture: true,
+			passive: true,
+		});
+
 		// Delegate internal links and tags inside the Reading View recipe container
 		recipeContainerEl.on("mouseover", "a.internal-link", (e, el) => {
 			if (!view.file) return;
@@ -285,6 +298,7 @@ export default class RecipeViewPlugin extends Plugin {
 			card,
 			containerEl: recipeContainerEl,
 			previewViewEl,
+			onScrollCapture,
 			signature,
 		});
 	}
@@ -292,6 +306,11 @@ export default class RecipeViewPlugin extends Plugin {
 	cleanupReadingView(view: MarkdownView) {
 		const mounted = this.mountedReadingViews.get(view);
 		if (mounted) {
+			mounted.previewViewEl.removeEventListener(
+				"scroll",
+				mounted.onScrollCapture,
+				{ capture: true }
+			);
 			mounted.card.$destroy();
 			mounted.containerEl.remove();
 			mounted.previewViewEl.classList.remove("is-recipe-view-active");

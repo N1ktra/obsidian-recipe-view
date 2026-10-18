@@ -46,9 +46,17 @@ settings:
 }
 
 .recipe-view-reading-container {
+  display: block;
+  height: auto;
   width: 100%;
   margin: 0;
-  padding: 0;
+  padding-top: 0;
+  padding-inline: 0;
+  padding-bottom: max(25vh, 120px);
+}
+
+body.is-mobile .recipe-view-reading-container {
+  padding-bottom: max(45vh, 200px);
 }
 
 /* Inline iOS Shortcut Timer button (@timer{...}) */

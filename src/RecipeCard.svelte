@@ -254,10 +254,7 @@
 <style>
 	.container {
 		position: relative;
-		top: 0;
-		left: 0;
-		right: 0;
-		height: 100%;
+		height: auto;
 		width: 100%;
 		display: block;
 	}
