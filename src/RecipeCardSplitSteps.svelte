@@ -113,7 +113,7 @@
 				>
 					<slot name="scaleselector" />
 					{#if hasGlobalIngredients}
-						<div class="global-ingredients-body">
+						<div class="global-ingredients-body recipe-ingredients-column">
 							{#each globalIngredients as c (c)}
 								<svelte:component this={c.type} {...c.props} />
 							{/each}
@@ -185,7 +185,7 @@
 						data-step-number={step.stepNumber}
 					>
 						{#if step.stepIngredients.length > 0}
-							<div class="step-ingredients-card">
+							<div class="step-ingredients-card recipe-ingredients-column">
 								{#each step.stepIngredients as c (c)}
 									<svelte:component
 										this={c.type}
@@ -350,9 +350,21 @@
 		min-width: 0;
 	}
 
-	.global-ingredients-card :global(.recipe-leaf:is(h1, h2, h3, h4, h5, h6):first-child),
+	.global-ingredients-card :global(> div > :first-child > .recipe-leaf:is(h1, h2, h3, h4, h5, h6)),
+	.global-ingredients-card :global(.recipe-ingredients-column > :first-child > .recipe-leaf:is(h1, h2, h3, h4, h5, h6)),
+	.global-ingredients-card :global(.recipe-ingredients-column > .recipe-leaf:is(h1, h2, h3, h4, h5, h6):first-child),
+	.step-ingredients-card :global(> :first-child > .recipe-leaf:is(h1, h2, h3, h4, h5, h6)),
 	.step-ingredients-card :global(.recipe-leaf:is(h1, h2, h3, h4, h5, h6):first-child) {
 		margin-block-start: 0;
+		margin-block-end: var(--size-4-2);
+	}
+
+	.global-ingredients-card :global(> div > :not(:first-child) > .recipe-leaf:is(h1, h2, h3, h4, h5, h6)),
+	.global-ingredients-card :global(.recipe-ingredients-column > :not(:first-child) > .recipe-leaf:is(h1, h2, h3, h4, h5, h6)),
+	.global-ingredients-card :global(.recipe-ingredients-column > .recipe-leaf:is(h1, h2, h3, h4, h5, h6):not(:first-child)),
+	.step-ingredients-card :global(> :not(:first-child) > .recipe-leaf:is(h1, h2, h3, h4, h5, h6)),
+	.step-ingredients-card :global(.recipe-leaf:is(h1, h2, h3, h4, h5, h6):not(:first-child)) {
+		margin-block-start: var(--size-4-4);
 		margin-block-end: var(--size-4-2);
 	}
 

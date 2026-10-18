@@ -275,3 +275,38 @@ body.is-mobile .recipe-view-reading-container {
   color: var(--text-normal);
   outline: none;
 }
+
+/* Side Column (linke Zutaten-Spalte) Zwischenüberschriften */
+/* Erster Header bleibt oben bündig */
+.recipe-ingredients-column h3:first-child,
+.recipe-ingredients-column h4:first-child,
+.recipe-ingredients-column :is(h1, h2, h3, h4, h5, h6):first-child,
+.recipe-ingredients-column > :first-child > :is(h1, h2, h3, h4, h5, h6),
+.global-ingredients-card h3:first-child,
+.global-ingredients-card h4:first-child,
+.global-ingredients-card > div > :first-child > :is(h1, h2, h3, h4, h5, h6),
+.global-ingredients-body > :first-child > :is(h1, h2, h3, h4, h5, h6),
+.step-ingredients-card > :first-child > :is(h1, h2, h3, h4, h5, h6),
+.recipe-section-header:first-child {
+  margin-top: 0;
+  margin-block-start: 0;
+  margin-bottom: var(--size-4-2);
+  margin-block-end: var(--size-4-2);
+}
+
+/* Alle nachfolgenden Header erhalten spürbar mehr Puffer nach oben */
+.recipe-ingredients-column h3:not(:first-child),
+.recipe-ingredients-column h4:not(:first-child),
+.recipe-ingredients-column :is(h1, h2, h3, h4, h5, h6):not(:first-child),
+.recipe-ingredients-column > :not(:first-child) > :is(h1, h2, h3, h4, h5, h6),
+.global-ingredients-card h3:not(:first-child),
+.global-ingredients-card h4:not(:first-child),
+.global-ingredients-card > div > :not(:first-child) > :is(h1, h2, h3, h4, h5, h6),
+.global-ingredients-body > :not(:first-child) > :is(h1, h2, h3, h4, h5, h6),
+.step-ingredients-card > :not(:first-child) > :is(h1, h2, h3, h4, h5, h6),
+.recipe-section-header:not(:first-child) {
+  margin-top: var(--size-4-4);
+  margin-block-start: var(--size-4-4);
+  margin-bottom: var(--size-4-2);
+  margin-block-end: var(--size-4-2);
+}
