@@ -12,6 +12,10 @@
 			root.appendChild(node);
 		});
 
+		if (childNodesOf.className) {
+			root.className = `recipe-leaf ${childNodesOf.className}`.trim();
+		}
+
 		for (var dataAttr in childNodesOf.dataset) {
 			root.setAttr("data-" + dataAttr, childNodesOf.dataset[dataAttr]!);
 		}

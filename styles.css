@@ -374,4 +374,105 @@ body.is-mobile .recipe-view-reading-container {
   margin-block-start: var(--size-4-4);
   margin-bottom: var(--size-4-2);
   margin-block-end: var(--size-4-2);
+}
+
+/* Embedded Video & Media Styling */
+.recipe-embedded-video {
+  max-width: min(100%, 560px);
+  width: auto;
+  height: auto;
+  max-height: 380px;
+  border-radius: var(--radius-m, 8px);
+  display: block;
+  margin: var(--size-4-2) 0;
+  box-sizing: border-box;
+  background-color: #000;
+  object-fit: contain;
+}
+
+.recipe-video-wrapper {
+  position: relative;
+  width: 100%;
+  max-width: min(100%, 560px);
+  aspect-ratio: 16 / 9;
+  height: auto;
+  border-radius: var(--radius-m, 8px);
+  margin: var(--size-4-2) 0;
+  overflow: hidden;
+  background-color: #000;
+  box-sizing: border-box;
+}
+
+.recipe-video-wrapper.recipe-video-shorts {
+  max-width: min(100%, 280px);
+  aspect-ratio: 9 / 16;
+}
+
+.recipe-video-wrapper iframe,
+.recipe-video-wrapper video {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100% !important;
+  height: 100% !important;
+  border: 0 !important;
+  border-radius: var(--radius-m, 8px);
+}
+
+.recipe-embedded-iframe {
+  width: 100%;
+  max-width: min(100%, 560px);
+  aspect-ratio: 16 / 9;
+  height: auto;
+  border: 0;
+  border-radius: var(--radius-m, 8px);
+  display: block;
+  margin: var(--size-4-2) 0;
+  background-color: #000;
+}
+
+/* Obsidian internal embed wrappers for video */
+.internal-embed.video-embed,
+.media-embed.video-embed {
+  display: block;
+  max-width: min(100%, 560px);
+  width: 100%;
+  margin: var(--size-4-2) 0;
+}
+
+.internal-embed.video-embed video,
+.media-embed.video-embed video {
+  max-width: min(100%, 560px);
+  width: auto;
+  max-height: 380px;
+  height: auto;
+  border-radius: var(--radius-m, 8px);
+  display: block;
+}
+
+/* Thumbnail video / iframe in title block (always 16:9 widescreen) */
+.thumbnail.recipe-thumbnail-video,
+video.thumbnail,
+iframe.thumbnail {
+  width: 240px !important;
+  max-width: 100% !important;
+  aspect-ratio: 16 / 9 !important;
+  height: auto !important;
+  flex: 0 0 240px !important;
+  flex-shrink: 0 !important;
+  object-fit: contain;
+  margin: 0;
+  border: none;
+  border-radius: var(--radius-m, var(--radius-s));
+  background-color: #000;
+}
+
+.single-column .thumbnail.recipe-thumbnail-video,
+:global(body.is-phone) .thumbnail.recipe-thumbnail-video {
+  width: 160px !important;
+  max-width: 100% !important;
+  aspect-ratio: 16 / 9 !important;
+  height: auto !important;
+  flex: 0 0 160px !important;
+  flex-shrink: 0 !important;
 }

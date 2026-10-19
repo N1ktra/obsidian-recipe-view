@@ -3,11 +3,15 @@
 	import store from "../store";
 	import RecipeViewPlugin from "../main";
 	import { formatDuration, parseFrontmatterTimeMinutes } from "../parsing";
+	import { isVideoFileUrl, getVideoEmbedUrl } from "../media";
 	import { TimerTimeFormat } from "../timers";
 
 	export let thumbnailPath: string | undefined;
 	export let title: string;
 	export let frontmatter: object;
+
+	$: isVideoThumbnail = thumbnailPath ? isVideoFileUrl(thumbnailPath) : false;
+	$: iframeEmbedUrl = thumbnailPath ? getVideoEmbedUrl(thumbnailPath) : null;
 	export let totalTimerMinutes = 0;
 	export let singleColumn: boolean;
 	export let app: App;
@@ -483,11 +487,32 @@
 
 <div class="title-block" class:single-column={singleColumn}>
 	{#if thumbnailPath}
-		<img
-			class="thumbnail"
-			src={thumbnailPath}
-			alt="Thumbnail for {title} recipe"
-		/>
+		{#if iframeEmbedUrl}
+			<iframe
+				class="thumbnail recipe-thumbnail-video"
+				src={iframeEmbedUrl}
+				title="Video thumbnail for {title} recipe"
+				frameborder="0"
+				allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+				allowfullscreen
+			/>
+		{:else if isVideoThumbnail}
+			<video
+				class="thumbnail recipe-thumbnail-video"
+				src={thumbnailPath}
+				controls
+				playsinline
+				preload="metadata"
+			>
+				<track kind="captions" />
+			</video>
+		{:else}
+			<img
+				class="thumbnail"
+				src={thumbnailPath}
+				alt="Thumbnail for {title} recipe"
+			/>
+		{/if}
 	{/if}
 	<div class="metadata">
 		<div class="inline-title">{title}</div>
@@ -591,14 +616,27 @@
 		margin-block-end: var(--size-4-6);
 		width: 100%;
 	}
-	img.thumbnail {
+	.thumbnail {
 		height: var(--thumbnail-size, 150px);
 		width: var(--thumbnail-size, 150px);
 		object-fit: cover;
 		flex: 0 0 var(--thumbnail-size, 150px);
 		flex-shrink: 0;
 		margin: 0;
+		border: none;
 		border-radius: var(--radius-m, var(--radius-s));
+		background-color: #000;
+	}
+	.thumbnail.recipe-thumbnail-video,
+	video.thumbnail,
+	iframe.thumbnail {
+		width: 240px;
+		max-width: 100%;
+		aspect-ratio: 16 / 9;
+		height: auto;
+		flex: 0 0 240px;
+		flex-shrink: 0;
+		object-fit: contain;
 	}
 	.metadata {
 		flex: 1 1 auto;
@@ -713,8 +751,8 @@
 		flex-direction: row;
 		align-items: flex-start;
 	}
-	.single-column img.thumbnail,
-	:global(body.is-phone) img.thumbnail {
+	.single-column .thumbnail,
+	:global(body.is-phone) .thumbnail {
 		height: var(--thumbnail-size-mobile, 90px);
 		width: var(--thumbnail-size-mobile, 90px);
 		flex: 0 0 var(--thumbnail-size-mobile, 90px);
@@ -722,5 +760,14 @@
 		object-fit: cover;
 		border-radius: var(--radius-m, var(--radius-s));
 		margin: 0;
+	}
+	.single-column .thumbnail.recipe-thumbnail-video,
+	:global(body.is-phone) .thumbnail.recipe-thumbnail-video {
+		width: 160px;
+		max-width: 100%;
+		aspect-ratio: 16 / 9;
+		height: auto;
+		flex: 0 0 160px;
+		flex-shrink: 0;
 	}
 </style>

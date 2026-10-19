@@ -41,7 +41,17 @@ import {
     injectQuantities,
     injectHighlightedIngredients,
 } from "./ingredientProcessor";
-import { resolveCoverImage } from "./media";
+import {
+    resolveCoverImage,
+    processEmbeddedMedia,
+    isVideoFileUrl,
+    getYouTubeEmbedUrl,
+    getVimeoEmbedUrl,
+    getVideoEmbedUrl,
+    isVideoMedia,
+    resolveMediaResourcePath,
+    extractMediaDimensions,
+} from "./media";
 import { buildUnifiedRecipeStructure } from "./recipeStructure";
 
 export {
@@ -59,6 +69,14 @@ export {
     parseForQty,
     injectQuantities,
     resolveCoverImage,
+    processEmbeddedMedia,
+    isVideoFileUrl,
+    getYouTubeEmbedUrl,
+    getVimeoEmbedUrl,
+    getVideoEmbedUrl,
+    isVideoMedia,
+    resolveMediaResourcePath,
+    extractMediaDimensions,
     isListItemWithCheckbox,
     sanitizeIngredientListElement,
     getDirectionsRegex,
@@ -107,6 +125,9 @@ export function parseRecipeMarkdown(
 
     const normalizedText = normalizeMarkdownStepListSpacing(text);
     MarkdownRenderer.render(plugin.app, normalizedText, result.renderedMarkdownParent, path, component);
+
+    // Transform embedded video files, embeds, YouTube/Vimeo links into responsive video players
+    processEmbeddedMedia(result.renderedMarkdownParent, plugin, path);
 
     // Transform inline @timer{...} syntax into clickable iOS Shortcut timer buttons and sum total duration
     const domTimerMinutes = parseForTimers(result.renderedMarkdownParent, plugin.settings);

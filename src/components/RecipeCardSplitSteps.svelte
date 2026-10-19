@@ -69,10 +69,10 @@
 		const target = e.target as HTMLElement | null;
 		if (!target) return;
 
-		// Do not hijack clicks on links, buttons (e.g. @timer{...}) or ingredient checkboxes
+		// Do not hijack clicks on links, buttons (e.g. @timer{...}), video/iframe players or ingredient checkboxes
 		if (
 			target.closest(
-				"a, button, input[type='checkbox'], .task-list-item-checkbox, label.recipe-ingredient-label"
+				"a, button, video, iframe, .recipe-embedded-video, .recipe-embedded-iframe, .recipe-video-wrapper, input[type='checkbox'], .task-list-item-checkbox, label.recipe-ingredient-label"
 			)
 		) {
 			return;

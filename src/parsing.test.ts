@@ -12,6 +12,13 @@ import {
     sanitizeIngredientListElement,
     sortHighlightIngredients,
     ParsedRecipe,
+    isVideoFileUrl,
+    getYouTubeEmbedUrl,
+    getVimeoEmbedUrl,
+    getVideoEmbedUrl,
+    isVideoMedia,
+    processEmbeddedMedia,
+    extractMediaDimensions,
 } from './parsing';
 import { DEFAULT_SETTINGS } from './settings';
 import { writable } from 'svelte/store';
@@ -1441,6 +1448,245 @@ describe('requireCheckboxesForIngredients option', () => {
         expect(result.description).toContain('Vor dem Backen gut kühlen.');
         expect(result.steps.length).toBe(1);
         expect(result.steps[0].stepTitle).toBe('Schritt 1');
+    });
+});
+
+describe('video support and embedded media processing', () => {
+    const mockPlugin = {
+        settings: {
+            ...DEFAULT_SETTINGS,
+            requireCheckboxesForIngredients: false,
+        },
+    } as any;
+
+    test('isVideoFileUrl detects standard video file formats', () => {
+        expect(isVideoFileUrl('video.mp4')).toBe(true);
+        expect(isVideoFileUrl('clip.WEBM')).toBe(true);
+        expect(isVideoFileUrl('test.mov')).toBe(true);
+        expect(isVideoFileUrl('test.m4v')).toBe(true);
+        expect(isVideoFileUrl('test.mkv')).toBe(true);
+        expect(isVideoFileUrl('test.ogv')).toBe(true);
+        expect(isVideoFileUrl('test.ogg')).toBe(true);
+        expect(isVideoFileUrl('https://example.com/video.mp4?token=123#t=10')).toBe(true);
+        expect(isVideoFileUrl('photo.jpg')).toBe(false);
+        expect(isVideoFileUrl('photo.png')).toBe(false);
+        expect(isVideoFileUrl('')).toBe(false);
+    });
+
+    test('getYouTubeEmbedUrl converts various YouTube link formats to embed URL', () => {
+        expect(getYouTubeEmbedUrl('https://www.youtube.com/watch?v=dQw4w9WgXcQ')).toBe(
+            'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ'
+        );
+        expect(getYouTubeEmbedUrl('https://youtu.be/dQw4w9WgXcQ')).toBe(
+            'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ'
+        );
+        expect(getYouTubeEmbedUrl('https://m.youtube.com/watch?feature=shared&v=dQw4w9WgXcQ')).toBe(
+            'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ'
+        );
+        expect(getYouTubeEmbedUrl('https://youtube.com/shorts/dQw4w9WgXcQ')).toBe(
+            'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ'
+        );
+        expect(getYouTubeEmbedUrl('https://example.com/recipe')).toBeNull();
+    });
+
+    test('getVimeoEmbedUrl converts Vimeo links to embed URL', () => {
+        expect(getVimeoEmbedUrl('https://vimeo.com/76979871')).toBe(
+            'https://player.vimeo.com/video/76979871'
+        );
+        expect(getVimeoEmbedUrl('https://player.vimeo.com/video/76979871')).toBe(
+            'https://player.vimeo.com/video/76979871'
+        );
+        expect(getVimeoEmbedUrl('https://example.com/not-vimeo')).toBeNull();
+    });
+
+    test('isVideoMedia correctly detects video files and external video services', () => {
+        expect(isVideoMedia('recipe.mp4')).toBe(true);
+        expect(isVideoMedia('https://youtu.be/dQw4w9WgXcQ')).toBe(true);
+        expect(isVideoMedia('https://vimeo.com/76979871')).toBe(true);
+        expect(isVideoMedia('cover.png')).toBe(false);
+    });
+
+    test('processEmbeddedMedia transforms internal embeds into responsive video elements', () => {
+        const container = document.createElement('div');
+        container.innerHTML = `
+            <span class="internal-embed media-embed video-embed" src="preparation.mp4" alt="preparation.mp4"></span>
+        `;
+        processEmbeddedMedia(container, mockPlugin, 'recipe.md');
+
+        const video = container.querySelector('video');
+        expect(video).not.toBeNull();
+        expect(video?.getAttribute('src')).toBe('preparation.mp4');
+        expect(video?.classList.contains('recipe-embedded-video')).toBe(true);
+        expect(video?.controls).toBe(true);
+    });
+
+    test('processEmbeddedMedia transforms img tags with video src into video elements', () => {
+        const container = document.createElement('div');
+        container.innerHTML = `
+            <img src="step1.webm" alt="Step 1 video">
+        `;
+        processEmbeddedMedia(container, mockPlugin, 'recipe.md');
+
+        expect(container.querySelector('img')).toBeNull();
+        const video = container.querySelector('video');
+        expect(video).not.toBeNull();
+        expect(video?.getAttribute('src')).toBe('step1.webm');
+        expect(video?.controls).toBe(true);
+    });
+
+    test('processEmbeddedMedia transforms standalone YouTube links in paragraphs into responsive iframes', () => {
+        const container = document.createElement('div');
+        container.innerHTML = `
+            <p><a href="https://www.youtube.com/watch?v=dQw4w9WgXcQ">https://www.youtube.com/watch?v=dQw4w9WgXcQ</a></p>
+        `;
+        processEmbeddedMedia(container, mockPlugin, 'recipe.md');
+
+        const wrapper = container.querySelector('.recipe-video-wrapper');
+        expect(wrapper).not.toBeNull();
+        const iframe = wrapper?.querySelector('iframe');
+        expect(iframe).not.toBeNull();
+        expect(iframe?.getAttribute('src')).toBe('https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ');
+        expect(iframe?.getAttribute('allowfullscreen')).toBe('true');
+    });
+
+    test('processEmbeddedMedia transforms standalone internal video links into video elements', () => {
+        const container = document.createElement('div');
+        container.innerHTML = `
+            <p><a href="technique.mov">technique.mov</a></p>
+        `;
+        processEmbeddedMedia(container, mockPlugin, 'recipe.md');
+
+        const video = container.querySelector('video');
+        expect(video).not.toBeNull();
+        expect(video?.getAttribute('src')).toBe('technique.mov');
+        expect(video?.controls).toBe(true);
+    });
+
+    test('buildUnifiedRecipeStructure sets fallback thumbnailPath from top video and strips from preamble', () => {
+        const container = document.createElement('div');
+        container.innerHTML = `
+            <video class="recipe-embedded-video" src="top_recipe.mp4" controls></video>
+            <h2>Zutaten</h2>
+            <ul><li>2 Eier</li></ul>
+            <h2>Zubereitung</h2>
+            <p>Eier aufschlagen.</p>
+        `;
+        const result: ParsedRecipe = {
+            title: '',
+            thumbnailPath: '',
+            sections: [],
+            globalIngredients: [],
+            steps: [],
+            hasStepIngredients: false,
+            totalTimerMinutes: 0,
+            highlightIngredients: [],
+            renderedMarkdownParent: container,
+            qtyScaleStore: writable(new Fraction(1)),
+        };
+
+        buildUnifiedRecipeStructure(result, 'test-top-video', mockPlugin);
+
+        expect(result.thumbnailPath).toBe('top_recipe.mp4');
+        expect(result.description || '').toBe('');
+        expect(result.steps.length).toBe(1);
+    });
+
+    test('buildUnifiedRecipeStructure preserves video inside preamble callout', () => {
+        const container = document.createElement('div');
+        container.innerHTML = `
+            <div class="callout" data-callout="tip">
+                <div class="callout-title"><div class="callout-title-inner">Video-Tipp</div></div>
+                <div class="callout-content">
+                    <p>Hier ist die Technik:</p>
+                    <video class="recipe-embedded-video" src="callout_tech.mp4" controls></video>
+                </div>
+            </div>
+            <h2>Zutaten</h2>
+            <ul><li>Mehl</li></ul>
+            <h2>Zubereitung</h2>
+            <p>Rühren.</p>
+        `;
+        const result: ParsedRecipe = {
+            title: '',
+            thumbnailPath: 'cover.jpg',
+            sections: [],
+            globalIngredients: [],
+            steps: [],
+            hasStepIngredients: false,
+            totalTimerMinutes: 0,
+            highlightIngredients: [],
+            renderedMarkdownParent: container,
+            qtyScaleStore: writable(new Fraction(1)),
+        };
+
+        buildUnifiedRecipeStructure(result, 'test-callout-video', mockPlugin);
+
+        expect(result.description).toContain('callout_tech.mp4');
+        expect(result.steps.length).toBe(1);
+    });
+
+    test('buildUnifiedRecipeStructure preserves videos within steps', () => {
+        const container = document.createElement('div');
+        container.innerHTML = `
+            <h2>Zutaten</h2>
+            <ul><li>100g Butter</li></ul>
+            <h2>Zubereitung</h2>
+            <p>Butter schmelzen.</p>
+            <div class="recipe-video-wrapper">
+                <iframe class="recipe-embedded-iframe" src="https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ"></iframe>
+            </div>
+        `;
+        const result: ParsedRecipe = {
+            title: '',
+            thumbnailPath: '',
+            sections: [],
+            globalIngredients: [],
+            steps: [],
+            hasStepIngredients: false,
+            totalTimerMinutes: 0,
+            highlightIngredients: [],
+            renderedMarkdownParent: container,
+            qtyScaleStore: writable(new Fraction(1)),
+        };
+
+        buildUnifiedRecipeStructure(result, 'test-step-video', mockPlugin);
+
+        expect(result.steps.length).toBe(2);
+        // The second step component is RecipeLeaf with the video wrapper
+        const secondStep = result.steps[1];
+        expect(secondStep.mainComponents.length).toBe(1);
+        expect((secondStep.mainComponents[0].props as any).childNodesOf.innerHTML).toContain('https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ');
+    });
+
+    test('extractMediaDimensions parses various width and height formats', () => {
+        const el1 = document.createElement('span');
+        el1.setAttribute('alt', '400');
+        expect(extractMediaDimensions(el1)).toEqual({ width: '400px' });
+
+        const el2 = document.createElement('span');
+        el2.setAttribute('alt', 'video.mp4|350x250');
+        expect(extractMediaDimensions(el2)).toEqual({ width: '350px', height: '250px' });
+
+        const el3 = document.createElement('span');
+        el3.setAttribute('width', '500');
+        expect(extractMediaDimensions(el3)).toEqual({ width: '500px' });
+    });
+
+    test('processEmbeddedMedia applies user-specified dimensions to videos and iframe wrappers', () => {
+        const container = document.createElement('div');
+        container.innerHTML = `
+            <span class="internal-embed media-embed video-embed" src="preparation.mp4" alt="300"></span>
+            <span class="internal-embed" src="https://www.youtube.com/watch?v=dQw4w9WgXcQ" alt="400"></span>
+        `;
+        processEmbeddedMedia(container, mockPlugin, 'recipe.md');
+
+        const video = container.querySelector('video');
+        expect(video).not.toBeNull();
+        expect(video?.style.width).toBe('300px');
+
+        const wrapper = container.querySelector('.recipe-video-wrapper') as HTMLElement;
+        expect(wrapper).not.toBeNull();
+        expect(wrapper?.style.maxWidth).toBe('400px');
     });
 });
 

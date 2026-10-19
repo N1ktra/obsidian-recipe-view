@@ -50,14 +50,48 @@ interface RawStepBlock {
     items: Array<HTMLElement>;
 }
 
+function elementHasMedia(element: HTMLElement): boolean {
+    const tag = element.nodeName.toUpperCase();
+    if (tag === "IMG" || tag === "VIDEO" || tag === "IFRAME") {
+        return true;
+    }
+    return (
+        element.getElementsByTagName("IMG").length > 0 ||
+        element.getElementsByTagName("VIDEO").length > 0 ||
+        element.getElementsByTagName("IFRAME").length > 0 ||
+        element.querySelectorAll(
+            ".internal-embed, .media-embed, .video-embed, .recipe-video-wrapper"
+        ).length > 0
+    );
+}
+
 function removeThumbnailFromElement(
     element: HTMLElement,
     thumbnailPath: string
 ): boolean {
     let removedAny = false;
-    const imgs = Array.from(element.getElementsByTagName("IMG"));
-    for (const img of imgs) {
-        const src = img.getAttribute("src") || "";
+    const mediaEls: Array<HTMLElement> = [];
+    const tag = element.nodeName.toUpperCase();
+    if (
+        tag === "IMG" ||
+        tag === "VIDEO" ||
+        tag === "IFRAME" ||
+        (element.matches && element.matches(".internal-embed[src], .media-embed[src], .recipe-video-wrapper"))
+    ) {
+        mediaEls.push(element);
+    }
+    mediaEls.push(
+        ...Array.from(
+            element.querySelectorAll<HTMLElement>(
+                "img, video, iframe, .internal-embed[src], .media-embed[src], .recipe-video-wrapper"
+            )
+        )
+    );
+    for (const el of mediaEls) {
+        const src =
+            el.getAttribute("src") ||
+            el.querySelector("iframe, video")?.getAttribute("src") ||
+            "";
         const matchesThumbnail =
             !thumbnailPath ||
             src === thumbnailPath ||
@@ -65,10 +99,10 @@ function removeThumbnailFromElement(
             src.endsWith(thumbnailPath) ||
             (thumbnailPath && src && (thumbnailPath.includes(src) || src.includes(thumbnailPath)));
         if (matchesThumbnail) {
-            const embedWrapper = img.closest(
-                ".image-embed, .media-embed, .internal-embed"
+            const embedWrapper = el.closest(
+                ".image-embed, .media-embed, .internal-embed, .recipe-video-wrapper"
             );
-            const toRemove = embedWrapper || img;
+            const toRemove = (embedWrapper as HTMLElement) || el;
             const parent = toRemove.parentElement;
             toRemove.remove();
             removedAny = true;
@@ -80,7 +114,7 @@ function removeThumbnailFromElement(
             ) {
                 if (
                     !parent.textContent?.trim() &&
-                    parent.getElementsByTagName("IMG").length === 0
+                    !elementHasMedia(parent)
                 ) {
                     parent.remove();
                 }
@@ -195,15 +229,22 @@ export function buildUnifiedRecipeStructure(
         const item = contentItems[i];
         const nodeName = item.nodeName;
 
-        // Check first thumbnail image if no cover defined
-        if (
-            !result.thumbnailPath &&
-            !inDirections &&
-            item.getElementsByTagName("IMG").length > 0
-        ) {
-            const img = item.getElementsByTagName("IMG").item(0);
-            if (img) {
-                result.thumbnailPath = img.getAttribute("src") || "";
+        // Check first thumbnail media (image, video, iframe, or internal embed) if no cover defined
+        if (!result.thumbnailPath && !inDirections && elementHasMedia(item)) {
+            const firstImg = item.nodeName === "IMG" ? (item as HTMLImageElement) : item.getElementsByTagName("IMG").item(0);
+            const firstVideo = item.nodeName === "VIDEO" ? (item as HTMLVideoElement) : item.getElementsByTagName("VIDEO").item(0);
+            const firstIframe = item.nodeName === "IFRAME" ? (item as HTMLIFrameElement) : item.getElementsByTagName("IFRAME").item(0);
+            const firstEmbed = (item.matches && item.matches(".internal-embed[src], .media-embed[src]"))
+                ? item
+                : item.querySelector(".internal-embed[src], .media-embed[src]");
+            if (firstImg) {
+                result.thumbnailPath = firstImg.getAttribute("src") || "";
+            } else if (firstVideo) {
+                result.thumbnailPath = firstVideo.getAttribute("src") || "";
+            } else if (firstIframe) {
+                result.thumbnailPath = firstIframe.getAttribute("src") || "";
+            } else if (firstEmbed) {
+                result.thumbnailPath = firstEmbed.getAttribute("src") || "";
             }
         }
 
@@ -216,16 +257,20 @@ export function buildUnifiedRecipeStructure(
                 continue;
             }
 
-            // Remove thumbnail image from preamble elements to prevent duplicate full-width rendering
-            if (result.thumbnailPath && item.getElementsByTagName("IMG").length > 0) {
+            // Remove thumbnail media from preamble elements to prevent duplicate full-width rendering
+            if (result.thumbnailPath && elementHasMedia(item)) {
                 removeThumbnailFromElement(item, result.thumbnailPath);
             }
 
-            const hasText = Boolean(item.textContent?.trim());
-            const hasImgs = item.getElementsByTagName("IMG").length > 0;
+            if (!item.parentElement) {
+                continue; // The item itself was removed as the thumbnail
+            }
 
-            if (!hasText && !hasImgs) {
-                continue; // Standalone image or empty element removed
+            const hasText = Boolean(item.textContent?.trim());
+            const hasMedia = elementHasMedia(item);
+
+            if (!hasText && !hasMedia) {
+                continue; // Standalone media or empty element removed
             }
 
             const isCallout =
@@ -242,9 +287,9 @@ export function buildUnifiedRecipeStructure(
                 const hasContentText = Boolean(
                     contentEl ? contentEl.textContent?.trim() : item.textContent?.trim()
                 );
-                const hasContentImgs = item.getElementsByTagName("IMG").length > 0;
+                const hasContentMedia = elementHasMedia(item);
 
-                if (!hasContentText && !hasContentImgs) {
+                if (!hasContentText && !hasContentMedia) {
                     const titleInner = (
                         calloutEl.querySelector(".callout-title-inner")?.textContent || ""
                     ).trim().toLowerCase();
@@ -279,15 +324,15 @@ export function buildUnifiedRecipeStructure(
             continue;
         }
 
-        // Fallback thumbnail removal outside preamble if item was a standalone image container
+        // Fallback thumbnail removal outside preamble if item was a standalone media container
         if (
             result.thumbnailPath &&
             !inDirections &&
-            item.getElementsByTagName("IMG").length > 0 &&
+            elementHasMedia(item) &&
             !item.textContent?.trim()
         ) {
             removeThumbnailFromElement(item, result.thumbnailPath);
-            if (!item.textContent?.trim() && item.getElementsByTagName("IMG").length === 0) {
+            if (!item.parentElement || (!item.textContent?.trim() && !elementHasMedia(item))) {
                 continue;
             }
         }
