@@ -1280,6 +1280,168 @@ describe('requireCheckboxesForIngredients option', () => {
         const stepList = result.steps[0].mainComponents[0].props.list as Array<HTMLElement>;
         expect(stepList[0].textContent).toContain('Butter schmelzen');
     });
+
+    test('extracts introductory callout before Zutaten with image: extracts thumbnailPath, removes image from callout, and excludes from steps', () => {
+        const plugin = { settings: { ...DEFAULT_SETTINGS } } as any;
+        const container = document.createElement('div');
+        container.innerHTML = `
+            <div class="callout" data-callout="note">
+                <div class="callout-title">
+                    <div class="callout-icon"></div>
+                    <div class="callout-title-inner">Tuna Sub [30cm Sub]</div>
+                </div>
+                <div class="callout-content">
+                    <p><span class="internal-embed media-embed image-embed is-loaded" src="tuna-sub.png"><img src="app://obsidian.md/tuna-sub.png"></span></p>
+                    <p>Ein leckeres Sandwich für den schnellen Hunger.</p>
+                </div>
+            </div>
+            <h2>Zutaten</h2>
+            <ul>
+                <li>1 Baguette</li>
+                <li>1 Dose Thunfisch</li>
+            </ul>
+            <h2>Zubereitung</h2>
+            <p>Brot aufschneiden und belegen.</p>
+        `;
+
+        const result: ParsedRecipe = {
+            title: '',
+            thumbnailPath: '',
+            sections: [],
+            globalIngredients: [],
+            steps: [],
+            hasStepIngredients: false,
+            totalTimerMinutes: 0,
+            highlightIngredients: [],
+            renderedMarkdownParent: container,
+            qtyScaleStore: writable(new Fraction(1)),
+        };
+
+        buildUnifiedRecipeStructure(result, 'test-callout-with-img', plugin);
+
+        // 1. Image is extracted into thumbnailPath
+        expect(result.thumbnailPath).toBe('app://obsidian.md/tuna-sub.png');
+
+        // 2. Callout is preserved in result.description, but the <img> is removed from it
+        expect(result.description).toContain('Tuna Sub [30cm Sub]');
+        expect(result.description).toContain('Ein leckeres Sandwich für den schnellen Hunger.');
+        expect(result.description).not.toContain('img');
+        expect(result.description).not.toContain('tuna-sub.png');
+
+        // 3. Callout is NOT in steps - steps start at actual directions
+        expect(result.steps.length).toBe(1);
+        expect(result.steps[0].stepNumber).toBe(1);
+        const stepComponent = result.steps[0].mainComponents[0].props.list as Array<HTMLElement>;
+        expect(stepComponent[0].textContent).toContain('Brot aufschneiden');
+    });
+
+    test('callout before Zutaten that only contains a cover image does not create an empty description box', () => {
+        const plugin = { settings: { ...DEFAULT_SETTINGS } } as any;
+        const container = document.createElement('div');
+        container.innerHTML = `
+            <div class="callout" data-callout="note">
+                <div class="callout-title">
+                    <div class="callout-icon"></div>
+                    <div class="callout-title-inner">Note</div>
+                </div>
+                <div class="callout-content">
+                    <p><img src="app://obsidian.md/cover.jpg"></p>
+                </div>
+            </div>
+            <h2>Zutaten</h2>
+            <ul>
+                <li>200 g Spaghetti</li>
+            </ul>
+            <h2>Zubereitung</h2>
+            <p>Spaghetti kochen.</p>
+        `;
+
+        const result: ParsedRecipe = {
+            title: '',
+            thumbnailPath: '',
+            sections: [],
+            globalIngredients: [],
+            steps: [],
+            hasStepIngredients: false,
+            totalTimerMinutes: 0,
+            highlightIngredients: [],
+            renderedMarkdownParent: container,
+            qtyScaleStore: writable(new Fraction(1)),
+        };
+
+        buildUnifiedRecipeStructure(result, 'test-callout-only-img', plugin);
+
+        // Thumbnail extracted
+        expect(result.thumbnailPath).toBe('app://obsidian.md/cover.jpg');
+
+        // Callout was solely a wrapper for the cover image, so description is empty
+        expect(result.description || '').toBe('');
+
+        // Steps start at Zubereitung
+        expect(result.steps.length).toBe(1);
+        expect(result.steps[0].stepNumber).toBe(1);
+    });
+
+    test('extracts description strictly up to HR (---), followed by steps', () => {
+        const plugin = { settings: { ...DEFAULT_SETTINGS } } as any;
+        const container = document.createElement('div');
+        container.innerHTML = `
+            <p>Einleitungstext zum Rezept.</p>
+            <hr>
+            <ol>
+                <li>Erster Zubereitungsschritt.</li>
+            </ol>
+        `;
+        const result: ParsedRecipe = {
+            title: '',
+            thumbnailPath: '',
+            sections: [],
+            globalIngredients: [],
+            steps: [],
+            hasStepIngredients: false,
+            totalTimerMinutes: 0,
+            highlightIngredients: [],
+            renderedMarkdownParent: container,
+            qtyScaleStore: writable(new Fraction(1)),
+        };
+
+        buildUnifiedRecipeStructure(result, 'test-desc-hr', plugin);
+
+        expect(result.description).toBe('Einleitungstext zum Rezept.');
+        expect(result.steps.length).toBe(1);
+        expect(result.steps[0].stepNumber).toBe(1);
+    });
+
+    test('extracts description strictly up to first heading, even if not matching Zutaten/Zubereitung regex', () => {
+        const plugin = { settings: { ...DEFAULT_SETTINGS } } as any;
+        const container = document.createElement('div');
+        container.innerHTML = `
+            <div class="callout" data-callout="note">
+                <div class="callout-title"><div class="callout-title-inner">Tipp</div></div>
+                <div class="callout-content"><p>Vor dem Backen gut kühlen.</p></div>
+            </div>
+            <h2>Schritt 1</h2>
+            <p>Teig kneten.</p>
+        `;
+        const result: ParsedRecipe = {
+            title: '',
+            thumbnailPath: '',
+            sections: [],
+            globalIngredients: [],
+            steps: [],
+            hasStepIngredients: false,
+            totalTimerMinutes: 0,
+            highlightIngredients: [],
+            renderedMarkdownParent: container,
+            qtyScaleStore: writable(new Fraction(1)),
+        };
+
+        buildUnifiedRecipeStructure(result, 'test-desc-first-heading', plugin);
+
+        expect(result.description).toContain('Vor dem Backen gut kühlen.');
+        expect(result.steps.length).toBe(1);
+        expect(result.steps[0].stepTitle).toBe('Schritt 1');
+    });
 });
 
 

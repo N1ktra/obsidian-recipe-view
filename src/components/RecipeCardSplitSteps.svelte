@@ -35,7 +35,8 @@
 			: effectiveSteps.slice(0, firstStepWithIngIdx)
 		: [];
 
-	$: hasTopContent = topRightSteps.length > 0 || Boolean(effectiveDescription);
+	$: hasTopContent =
+		topRightSteps.length > 0 || Boolean(effectiveDescription);
 
 	$: bottomStepRows = hasGlobalIngredients
 		? firstStepWithIngIdx === -1
@@ -203,16 +204,8 @@
 			{/if}
 		</div>
 
-		{#if bottomStepRows.length > 0 || (!hasGlobalIngredients && effectiveDescription)}
+		{#if bottomStepRows.length > 0}
 			<div class="step-cards-list">
-				{#if !hasGlobalIngredients && effectiveDescription}
-					<div class="recipe-description-row">
-						<div class="recipe-description">
-							<!-- eslint-disable -->
-							{@html effectiveDescription}
-						</div>
-					</div>
-				{/if}
 				{#each bottomStepRows as step (step)}
 					{@const stepIndex = effectiveSteps.indexOf(step)}
 					<!-- svelte-ignore a11y-click-events-have-key-events -->
@@ -551,6 +544,17 @@
 		font-size: var(--font-text-size, var(--font-ui-medium, 1rem));
 		line-height: var(--line-height-normal, 1.5);
 		overflow-wrap: break-word;
+	}
+
+	.recipe-description:has(.callout) {
+		background-color: transparent;
+		border-left: none;
+		padding: 0;
+		border-radius: 0;
+	}
+
+	.recipe-description :global(.callout) {
+		margin: 0;
 	}
 
 	.recipe-description :global(p) {

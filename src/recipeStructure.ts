@@ -50,6 +50,46 @@ interface RawStepBlock {
     items: Array<HTMLElement>;
 }
 
+function removeThumbnailFromElement(
+    element: HTMLElement,
+    thumbnailPath: string
+): boolean {
+    let removedAny = false;
+    const imgs = Array.from(element.getElementsByTagName("IMG"));
+    for (const img of imgs) {
+        const src = img.getAttribute("src") || "";
+        const matchesThumbnail =
+            !thumbnailPath ||
+            src === thumbnailPath ||
+            thumbnailPath.endsWith(src) ||
+            src.endsWith(thumbnailPath) ||
+            (thumbnailPath && src && (thumbnailPath.includes(src) || src.includes(thumbnailPath)));
+        if (matchesThumbnail) {
+            const embedWrapper = img.closest(
+                ".image-embed, .media-embed, .internal-embed"
+            );
+            const toRemove = embedWrapper || img;
+            const parent = toRemove.parentElement;
+            toRemove.remove();
+            removedAny = true;
+            if (
+                parent &&
+                (parent.nodeName === "P" ||
+                    parent.nodeName === "DIV" ||
+                    parent.nodeName === "SPAN")
+            ) {
+                if (
+                    !parent.textContent?.trim() &&
+                    parent.getElementsByTagName("IMG").length === 0
+                ) {
+                    parent.remove();
+                }
+            }
+        }
+    }
+    return removedAny;
+}
+
 export function buildUnifiedRecipeStructure(
     result: ParsedRecipe,
     radioName: string,
@@ -125,21 +165,29 @@ export function buildUnifiedRecipeStructure(
         }
     }
 
-    // Locate the first ingredients or directions section (header or list)
-    let firstRecipeSectionIndex = -1;
-    if (ingredientsHeaderIndex !== -1 && directionsHeaderIndex !== -1) {
-        firstRecipeSectionIndex = Math.min(ingredientsHeaderIndex, directionsHeaderIndex);
-    } else if (ingredientsHeaderIndex !== -1) {
-        firstRecipeSectionIndex = ingredientsHeaderIndex;
-    } else if (directionsHeaderIndex !== -1) {
-        firstRecipeSectionIndex = directionsHeaderIndex;
-    } else {
-        for (let i = startIndex; i < contentItems.length; i++) {
-            const item = contentItems[i];
-            if (item.nodeName === "UL" || item.nodeName === "OL") {
-                firstRecipeSectionIndex = i;
-                break;
-            }
+    // The description spans everything up to the first Heading, "---" (HR), or list (UL/OL)
+    let firstDescriptionBoundaryIndex = -1;
+    for (let i = startIndex; i < contentItems.length; i++) {
+        const item = contentItems[i];
+        const nodeName = item.nodeName;
+
+        // Skip leading H1 if used as note title
+        if (nodeName === "H1" && !result.title) {
+            result.title = (item.textContent || "").trim();
+            continue;
+        }
+
+        // Boundary: first Heading, section header (ingredients/directions regex), --- (HR), or list
+        if (
+            Boolean(nodeName.match(/^H[1-6]$/)) ||
+            isIngredientsHeaderElement(item, ingredientsRegex) ||
+            isDirectionsHeaderElement(item, directionsRegex) ||
+            nodeName === "HR" ||
+            nodeName === "UL" ||
+            nodeName === "OL"
+        ) {
+            firstDescriptionBoundaryIndex = i;
+            break;
         }
     }
 
@@ -156,14 +204,65 @@ export function buildUnifiedRecipeStructure(
             const img = item.getElementsByTagName("IMG").item(0);
             if (img) {
                 result.thumbnailPath = img.getAttribute("src") || "";
-                if (!item.textContent?.trim()) {
-                    continue;
-                }
             }
         }
 
-        // Introductory content before any ingredients or directions section
-        if (firstRecipeSectionIndex !== -1 && i < firstRecipeSectionIndex) {
+        // Introductory content before the first heading, "---", or list
+        if (firstDescriptionBoundaryIndex !== -1 && i < firstDescriptionBoundaryIndex) {
+            if (nodeName === "H1") {
+                if (!result.title) {
+                    result.title = (item.textContent || "").trim();
+                }
+                continue;
+            }
+
+            // Remove thumbnail image from preamble elements to prevent duplicate full-width rendering
+            if (result.thumbnailPath && item.getElementsByTagName("IMG").length > 0) {
+                removeThumbnailFromElement(item, result.thumbnailPath);
+            }
+
+            const hasText = Boolean(item.textContent?.trim());
+            const hasImgs = item.getElementsByTagName("IMG").length > 0;
+
+            if (!hasText && !hasImgs) {
+                continue; // Standalone image or empty element removed
+            }
+
+            const isCallout =
+                item.classList.contains("callout") ||
+                Boolean(item.querySelector(".callout")) ||
+                nodeName === "BLOCKQUOTE";
+
+            if (isCallout) {
+                const calloutEl = (item.classList.contains("callout")
+                    ? item
+                    : item.querySelector(".callout")) as HTMLElement || item;
+                const contentEl = calloutEl.querySelector(".callout-content") as HTMLElement | null;
+
+                const hasContentText = Boolean(
+                    contentEl ? contentEl.textContent?.trim() : item.textContent?.trim()
+                );
+                const hasContentImgs = item.getElementsByTagName("IMG").length > 0;
+
+                if (!hasContentText && !hasContentImgs) {
+                    const titleInner = (
+                        calloutEl.querySelector(".callout-title-inner")?.textContent || ""
+                    ).trim().toLowerCase();
+                    const calloutType = (
+                        calloutEl.getAttribute("data-callout") || ""
+                    ).trim().toLowerCase();
+                    if (!titleInner || titleInner === calloutType) {
+                        continue; // Pure cover wrapper callout without custom title or text
+                    }
+                }
+
+                const html = item.outerHTML.trim();
+                if (html) {
+                    descriptionParagraphs.push(html);
+                }
+                continue;
+            }
+
             if (nodeName === "P") {
                 const text = item.innerHTML.trim();
                 if (text) {
@@ -171,10 +270,24 @@ export function buildUnifiedRecipeStructure(
                 }
                 continue;
             }
-            if (nodeName === "H1") {
-                if (!result.title) {
-                    result.title = (item.textContent || "").trim();
-                }
+
+            // Any other preamble element with content
+            const html = item.outerHTML.trim();
+            if (html) {
+                descriptionParagraphs.push(html);
+            }
+            continue;
+        }
+
+        // Fallback thumbnail removal outside preamble if item was a standalone image container
+        if (
+            result.thumbnailPath &&
+            !inDirections &&
+            item.getElementsByTagName("IMG").length > 0 &&
+            !item.textContent?.trim()
+        ) {
+            removeThumbnailFromElement(item, result.thumbnailPath);
+            if (!item.textContent?.trim() && item.getElementsByTagName("IMG").length === 0) {
                 continue;
             }
         }
@@ -247,7 +360,17 @@ export function buildUnifiedRecipeStructure(
         result.description = descriptionParagraphs[0];
     } else if (descriptionParagraphs.length > 1) {
         result.description = descriptionParagraphs
-            .map((p) => `<p>${p}</p>`)
+            .map((p) => {
+                const trimmed = p.trim();
+                if (
+                    trimmed.startsWith("<div") ||
+                    trimmed.startsWith("<blockquote") ||
+                    trimmed.startsWith("<p")
+                ) {
+                    return trimmed;
+                }
+                return `<p>${trimmed}</p>`;
+            })
             .join("");
     }
 
