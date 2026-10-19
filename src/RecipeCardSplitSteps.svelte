@@ -413,14 +413,13 @@
 	.recipe-step-row {
 		display: grid;
 		grid-template-columns: 280px 1fr;
-		gap: var(--size-4-5);
+		gap: var(--size-4-4);
 		align-items: start;
-		padding-block: var(--size-4-3);
-		padding-inline: 0;
+		padding: var(--size-4-2);
 		margin-bottom: var(--size-4-3);
 		border: none;
 		border-bottom: 1px solid var(--background-modifier-border);
-		border-radius: 0;
+		border-radius: var(--radius-m);
 		background-color: transparent;
 		box-sizing: border-box;
 		cursor: default;
@@ -477,9 +476,8 @@
 		box-sizing: border-box;
 		border: none;
 		border-bottom: 1px solid var(--background-modifier-border);
-		border-radius: 0;
-		padding-block: var(--size-4-3);
-		padding-inline: 0;
+		border-radius: var(--radius-m);
+		padding: var(--size-4-2);
 		margin-bottom: var(--size-4-2);
 		background-color: transparent;
 		transition: background-color 0.15s ease, border-color 0.15s ease,
@@ -531,7 +529,7 @@
 		gap: var(--size-4-2);
 		background-color: transparent;
 		border: none;
-		padding: var(--size-4-2) var(--size-4-3);
+		padding: var(--size-4-1) var(--size-4-2);
 		cursor: pointer;
 		-webkit-tap-highlight-color: transparent;
 	}
@@ -542,6 +540,43 @@
 	.top-step-item:has(input[type="radio"]:checked) .step-card-number {
 		color: var(--text-accent);
 		font-weight: 600;
+	}
+
+	.recipe-step-row.is-selected .step-card-body :global(:is(h1, h2, h3, h4, h5, h6)),
+	.recipe-step-row.is-selected .step-card-body :global(.step-title),
+	.recipe-step-row:has(input[type="radio"]:checked) .step-card-body :global(:is(h1, h2, h3, h4, h5, h6)),
+	.recipe-step-row:has(input[type="radio"]:checked) .step-card-body :global(.step-title),
+	.top-step-item.is-selected .step-card-body :global(:is(h1, h2, h3, h4, h5, h6)),
+	.top-step-item.is-selected .step-card-body :global(.step-title),
+	.top-step-item:has(input[type="radio"]:checked) .step-card-body :global(:is(h1, h2, h3, h4, h5, h6)),
+	.top-step-item:has(input[type="radio"]:checked) .step-card-body :global(.step-title) {
+		color: var(--text-accent);
+	}
+
+	@media (hover: hover) {
+		.recipe-step-row:hover .step-card-number,
+		.recipe-step-row:has(.step-card-main:hover) .step-card-number,
+		.top-step-item:hover .step-card-number,
+		.top-step-item:has(.step-card-main:hover) .step-card-number {
+			color: var(--text-accent);
+		}
+
+		.recipe-step-row:hover .step-card-body :global(:is(h1, h2, h3, h4, h5, h6)),
+		.recipe-step-row:hover .step-card-body :global(.step-title),
+		.recipe-step-row:has(.step-card-main:hover) .step-card-body :global(:is(h1, h2, h3, h4, h5, h6)),
+		.recipe-step-row:has(.step-card-main:hover) .step-card-body :global(.step-title),
+		.top-step-item:hover .step-card-body :global(:is(h1, h2, h3, h4, h5, h6)),
+		.top-step-item:hover .step-card-body :global(.step-title),
+		.top-step-item:has(.step-card-main:hover) .step-card-body :global(:is(h1, h2, h3, h4, h5, h6)),
+		.top-step-item:has(.step-card-main:hover) .step-card-body :global(.step-title) {
+			color: var(--text-accent);
+		}
+	}
+
+	.step-card-number,
+	.step-card-body :global(:is(h1, h2, h3, h4, h5, h6)),
+	.step-card-body :global(.step-title) {
+		transition: color 0.15s ease;
 	}
 
 	.step-card-number {

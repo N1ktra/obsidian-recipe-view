@@ -137,17 +137,35 @@ body.is-mobile .recipe-view-reading-container {
   vertical-align: baseline;
 }
 
-/* Ensure left column of .recipe-step-row aligns flush (left: 0) with .global-ingredients-card
-   while .step-card-main provides a comfortable buffer around step numbers and text */
+/* Ensure .recipe-step-row has a comfortable buffer around inner ingredients and instructions
+   while .step-card-main provides harmonious spacing */
 .recipe-step-row {
-  padding-inline: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
   box-sizing: border-box;
+  padding: var(--size-4-2) !important;
+  border-radius: var(--radius-m);
 }
 
 .recipe-step-row *,
 .top-step-item,
 .top-step-item * {
   box-sizing: border-box;
+}
+
+.top-step-item {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: var(--size-4-2) !important;
+  border-radius: var(--radius-m);
+}
+
+.recipe-step-row .step-ingredients-card,
+.recipe-step-row .recipe-step-ingredients-col,
+.recipe-step-row .step-card-ingredients {
+  box-sizing: border-box;
+  margin: 0;
 }
 
 .step-right-cell {
@@ -157,12 +175,42 @@ body.is-mobile .recipe-view-reading-container {
 
 .step-card-main {
   box-sizing: border-box;
-  padding: var(--size-4-2) var(--size-4-3);
+  padding: var(--size-4-1) var(--size-4-2);
 }
 
 .recipe-step-row.is-selected,
 .recipe-step-row:has(input[type="radio"]:checked) {
   box-shadow: 0 0 0 1px var(--interactive-accent);
+}
+
+/* Step number and title styling on selection and hover */
+.recipe-step-row .step-card-number,
+.top-step-item .step-card-number,
+.recipe-step-row .step-card-body :is(h1, h2, h3, h4, h5, h6, .step-title),
+.top-step-item .step-card-body :is(h1, h2, h3, h4, h5, h6, .step-title) {
+  transition: color 0.15s ease;
+}
+
+.recipe-step-row:hover .step-card-number,
+.recipe-step-row:has(.step-card-main:hover) .step-card-number,
+.recipe-step-row.is-selected .step-card-number,
+.recipe-step-row:has(input[type="radio"]:checked) .step-card-number,
+.top-step-item:hover .step-card-number,
+.top-step-item:has(.step-card-main:hover) .step-card-number,
+.top-step-item.is-selected .step-card-number,
+.top-step-item:has(input[type="radio"]:checked) .step-card-number {
+  color: var(--text-accent);
+}
+
+.recipe-step-row:hover .step-card-body :is(h1, h2, h3, h4, h5, h6, .step-title),
+.recipe-step-row:has(.step-card-main:hover) .step-card-body :is(h1, h2, h3, h4, h5, h6, .step-title),
+.recipe-step-row.is-selected .step-card-body :is(h1, h2, h3, h4, h5, h6, .step-title),
+.recipe-step-row:has(input[type="radio"]:checked) .step-card-body :is(h1, h2, h3, h4, h5, h6, .step-title),
+.top-step-item:hover .step-card-body :is(h1, h2, h3, h4, h5, h6, .step-title),
+.top-step-item:has(.step-card-main:hover) .step-card-body :is(h1, h2, h3, h4, h5, h6, .step-title),
+.top-step-item.is-selected .step-card-body :is(h1, h2, h3, h4, h5, h6, .step-title),
+.top-step-item:has(input[type="radio"]:checked) .step-card-body :is(h1, h2, h3, h4, h5, h6, .step-title) {
+  color: var(--text-accent);
 }
 
 /* Header metadata rows: Row 1 (.recipe-properties-row) & Row 2 (.recipe-time-bar) */
