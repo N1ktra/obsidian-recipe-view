@@ -1167,6 +1167,119 @@ describe('requireCheckboxesForIngredients option', () => {
         const thirdSpan = lis[2].querySelector('span[data-qty="true"]')!;
         expect(thirdSpan.nextSibling?.textContent).toBe(' Brot');
     });
+
+    test('extracts introductory paragraph before Zutaten into result.description and strictly excludes it from steps', () => {
+        const plugin = { settings: { ...DEFAULT_SETTINGS } } as any;
+        const container = document.createElement('div');
+        container.innerHTML = `
+            <p>Ein wunderbares Sommergericht für die ganze Familie.</p>
+            <h2>Zutaten</h2>
+            <ul>
+                <li>200 g Nudeln</li>
+            </ul>
+            <h2>Zubereitung</h2>
+            <ol>
+                <li>Nudeln in kochendem Salzwasser al dente garen.</li>
+                <li>Mit Sauce servieren.</li>
+            </ol>
+        `;
+
+        const result: ParsedRecipe = {
+            title: '',
+            thumbnailPath: '',
+            sections: [],
+            globalIngredients: [],
+            steps: [],
+            hasStepIngredients: false,
+            totalTimerMinutes: 0,
+            highlightIngredients: [],
+            renderedMarkdownParent: container,
+            qtyScaleStore: writable(new Fraction(1)),
+        };
+
+        buildUnifiedRecipeStructure(result, 'test-description', plugin);
+
+        // 1. Description is properly extracted
+        expect(result.description).toBe('Ein wunderbares Sommergericht für die ganze Familie.');
+
+        // 2. The paragraph is excluded from steps - steps start with "1." at actual directions
+        expect(result.steps.length).toBe(2);
+        expect(result.steps[0].stepNumber).toBe(1);
+        const step1List = result.steps[0].mainComponents[0].props.list as Array<HTMLElement>;
+        expect(step1List[0].textContent).toContain('Nudeln in kochendem Salzwasser');
+        expect(result.steps[1].stepNumber).toBe(2);
+    });
+
+    test('extracts introductory paragraph before Zubereitung when no ingredients header exists', () => {
+        const plugin = { settings: { ...DEFAULT_SETTINGS } } as any;
+        const container = document.createElement('div');
+        container.innerHTML = `
+            <p>Schnelle Anleitung ohne Zutatenliste.</p>
+            <h2>Zubereitung</h2>
+            <ol>
+                <li>Wasser aufsetzen.</li>
+            </ol>
+        `;
+
+        const result: ParsedRecipe = {
+            title: '',
+            thumbnailPath: '',
+            sections: [],
+            globalIngredients: [],
+            steps: [],
+            hasStepIngredients: false,
+            totalTimerMinutes: 0,
+            highlightIngredients: [],
+            renderedMarkdownParent: container,
+            qtyScaleStore: writable(new Fraction(1)),
+        };
+
+        buildUnifiedRecipeStructure(result, 'test-desc-no-ing', plugin);
+
+        expect(result.description).toBe('Schnelle Anleitung ohne Zutatenliste.');
+        expect(result.steps.length).toBe(1);
+        expect(result.steps[0].stepNumber).toBe(1);
+        const stepList = result.steps[0].mainComponents[0].props.list as Array<HTMLElement>;
+        expect(stepList[0].textContent).toContain('Wasser aufsetzen');
+    });
+
+    test('extracts multiple introductory paragraphs before Zutaten into result.description with paragraph tags', () => {
+        const plugin = { settings: { ...DEFAULT_SETTINGS } } as any;
+        const container = document.createElement('div');
+        container.innerHTML = `
+            <p>Erster einleitender Absatz.</p>
+            <p>Zweiter einleitender Absatz mit <em>Formatierung</em>.</p>
+            <h2>Zutaten</h2>
+            <ul>
+                <li>100 g Butter</li>
+            </ul>
+            <h2>Zubereitung</h2>
+            <p>Butter schmelzen.</p>
+        `;
+
+        const result: ParsedRecipe = {
+            title: '',
+            thumbnailPath: '',
+            sections: [],
+            globalIngredients: [],
+            steps: [],
+            hasStepIngredients: false,
+            totalTimerMinutes: 0,
+            highlightIngredients: [],
+            renderedMarkdownParent: container,
+            qtyScaleStore: writable(new Fraction(1)),
+        };
+
+        buildUnifiedRecipeStructure(result, 'test-multi-desc', plugin);
+
+        expect(result.description).toBe(
+            '<p>Erster einleitender Absatz.</p><p>Zweiter einleitender Absatz mit <em>Formatierung</em>.</p>'
+        );
+        expect(result.steps.length).toBe(1);
+        expect(result.steps[0].stepNumber).toBe(1);
+        const stepList = result.steps[0].mainComponents[0].props.list as Array<HTMLElement>;
+        expect(stepList[0].textContent).toContain('Butter schmelzen');
+    });
 });
 
 

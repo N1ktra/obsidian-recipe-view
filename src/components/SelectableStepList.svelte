@@ -1,6 +1,6 @@
 <script lang="ts">
 	import RecipeLeaf from "./RecipeLeaf.svelte";
-	import { highlightIngredientsInDom } from "./parsing";
+	import { highlightIngredientsInDom } from "../parsing";
 
 	export let list: HTMLOListElement | Array<HTMLElement>;
 	export let kind: string;

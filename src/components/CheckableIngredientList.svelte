@@ -1,6 +1,6 @@
 <script lang="ts">
 	import RecipeLeaf from "./RecipeLeaf.svelte";
-	import { sanitizeIngredientListElement } from "./parsing";
+	import { sanitizeIngredientListElement } from "../parsing";
 
 	export let list: HTMLUListElement;
 	export let bullets: boolean;

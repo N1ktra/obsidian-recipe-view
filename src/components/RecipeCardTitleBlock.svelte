@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { App, Component, MarkdownRenderer, TFile, moment } from "obsidian";
-	import store from "./store";
-	import RecipeViewPlugin from "./main";
-	import { formatDuration, parseFrontmatterTimeMinutes } from "./parsing";
-	import { TimerTimeFormat } from "./timers";
+	import store from "../store";
+	import RecipeViewPlugin from "../main";
+	import { formatDuration, parseFrontmatterTimeMinutes } from "../parsing";
+	import { TimerTimeFormat } from "../timers";
 
 	export let thumbnailPath: string | undefined;
 	export let title: string;

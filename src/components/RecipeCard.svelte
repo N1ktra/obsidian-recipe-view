@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { CachedMetadata, Component, Platform, TFile } from "obsidian";
 	import RecipeCardTitleBlock from "./RecipeCardTitleBlock.svelte";
-	import RecipeViewPlugin from "./main";
-	import store from "./store";
+	import RecipeViewPlugin from "../main";
+	import store from "../store";
 	import ScaleSelector from "./ScaleSelector.svelte";
 	import Fraction from "fraction.js";
 	import RecipeCardSplitSteps from "./RecipeCardSplitSteps.svelte";
-	import { ParsedRecipe, parseFrontmatterTimeMinutes } from "./parsing";
+	import { ParsedRecipe, parseFrontmatterTimeMinutes } from "../parsing";
 
 	import { get } from "svelte/store";
 
@@ -281,6 +281,7 @@
 		steps={parsedRecipe?.steps || []}
 		sections={parsedRecipe?.sections || []}
 		singleColumn={Boolean(singleColumn)}
+		description={parsedRecipe?.description ?? ""}
 	>
 		<ScaleSelector
 			slot="scaleselector"

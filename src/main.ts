@@ -10,7 +10,7 @@ import {
 	WorkspaceLeaf,
 } from 'obsidian';
 
-import RecipeCard from './RecipeCard.svelte';
+import RecipeCard from './components/RecipeCard.svelte';
 import { parseRecipeMarkdown } from './parsing';
 import { isRecipeNote } from './detection';
 import store from './store';

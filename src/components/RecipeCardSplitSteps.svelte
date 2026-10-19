@@ -3,15 +3,16 @@
 		ParsedRecipeComponent,
 		ParsedRecipeSection,
 		ParsedRecipeStep,
-	} from "./parsing";
-	import store from "./store";
-	import RecipeViewPlugin from "./main";
+	} from "../parsing";
+	import store from "../store";
+	import RecipeViewPlugin from "../main";
 	import { get } from "svelte/store";
 
 	export let globalIngredients: Array<ParsedRecipeComponent> = [];
 	export let steps: Array<ParsedRecipeStep> = [];
 	export let sections: Array<ParsedRecipeSection> = [];
 	export let singleColumn = false;
+	export let description: string = "";
 
 	let plugin: RecipeViewPlugin = get(store.plugin);
 	store.plugin.subscribe((p) => (plugin = p));
@@ -19,6 +20,8 @@
 
 	let wrapperEl: HTMLDivElement;
 	let selectedIndex: number | null = null;
+
+	$: effectiveDescription = (description || "").trim();
 
 	$: effectiveSteps = steps || [];
 	$: hasGlobalIngredients = (globalIngredients?.length ?? 0) > 0;
@@ -31,6 +34,8 @@
 			? effectiveSteps
 			: effectiveSteps.slice(0, firstStepWithIngIdx)
 		: [];
+
+	$: hasTopContent = topRightSteps.length > 0 || Boolean(effectiveDescription);
 
 	$: bottomStepRows = hasGlobalIngredients
 		? firstStepWithIngIdx === -1
@@ -115,7 +120,7 @@
 	<div class="split-steps-wrapper">
 		<div
 			class="recipe-top-grid"
-			class:has-top-steps={topRightSteps.length > 0}
+			class:has-top-steps={hasTopContent}
 			class:has-bottom-rows={bottomStepRows.length > 0}
 		>
 			<div class="top-title-area">
@@ -139,9 +144,17 @@
 				</div>
 			</div>
 
-			{#if topRightSteps.length > 0}
+			{#if hasTopContent}
 				<div class="top-steps-area">
-					{#each topRightSteps as step (step)}
+					{#if effectiveDescription}
+						<div class="recipe-description-row">
+							<div class="recipe-description">
+								<!-- eslint-disable -->
+								{@html effectiveDescription}
+							</div>
+						</div>
+					{/if}
+				{#each topRightSteps as step (step)}
 						{#if step.isHeadingOnly}
 							<div class="step-heading-block">
 								{#each step.mainComponents as c (c)}
@@ -190,8 +203,16 @@
 			{/if}
 		</div>
 
-		{#if bottomStepRows.length > 0}
+		{#if bottomStepRows.length > 0 || (!hasGlobalIngredients && effectiveDescription)}
 			<div class="step-cards-list">
+				{#if !hasGlobalIngredients && effectiveDescription}
+					<div class="recipe-description-row">
+						<div class="recipe-description">
+							<!-- eslint-disable -->
+							{@html effectiveDescription}
+						</div>
+					</div>
+				{/if}
 				{#each bottomStepRows as step (step)}
 					{@const stepIndex = effectiveSteps.indexOf(step)}
 					<!-- svelte-ignore a11y-click-events-have-key-events -->
@@ -509,6 +530,36 @@
 
 	.step-heading-block :global(.recipe-leaf:is(h1, h2, h3, h4, h5, h6)) {
 		margin-block: 0;
+	}
+
+	/* Description callout placed at the top of the steps sequence */
+	.recipe-description-row {
+		width: 100%;
+		box-sizing: border-box;
+		padding: var(--size-4-2) 0;
+		margin-bottom: var(--size-4-3);
+	}
+
+	.recipe-description {
+		width: 100%;
+		box-sizing: border-box;
+		padding: var(--size-4-3) var(--size-4-4);
+		background-color: var(--callout-color, var(--background-secondary));
+		border-left: 4px solid var(--interactive-accent);
+		border-radius: var(--radius-s);
+		color: var(--text-normal);
+		font-size: var(--font-text-size, var(--font-ui-medium, 1rem));
+		line-height: var(--line-height-normal, 1.5);
+		overflow-wrap: break-word;
+	}
+
+	.recipe-description :global(p) {
+		margin-block-start: 0;
+		margin-block-end: var(--size-4-2);
+	}
+
+	.recipe-description :global(p:last-child) {
+		margin-block-end: 0;
 	}
 
 	/* Steps inside topRightSteps (when beside global ingredients card) */
