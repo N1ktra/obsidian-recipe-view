@@ -12,6 +12,7 @@ import {
     parseFrontmatterTimeMinutes,
     calculateTotalTimerMinutes,
     formatDuration,
+    highlightIngredientsInDom,
 } from './timers';
 
 describe('matching @timer{...} syntax', () => {
@@ -213,6 +214,58 @@ describe('ingredient list marker extraction and automatic step highlighting', ()
             { index: 59, length: 6, name: 'Zucker' },
             { index: 76, length: 8, name: 'Olivenöl' },
         ]);
+    });
+
+    test('preserves whitespace before @-marked ingredients during text cleaning (2 g @Teig, 100 ml @Milch, 2 g @Brot)', () => {
+        expect(extractMarkedIngredientsFromText('2 g @Teig')).toStrictEqual({
+            cleanedText: '2 g Teig',
+            extracted: ['Teig'],
+        });
+        expect(extractMarkedIngredientsFromText('100 ml @Milch')).toStrictEqual({
+            cleanedText: '100 ml Milch',
+            extracted: ['Milch'],
+        });
+        expect(extractMarkedIngredientsFromText('2 g @Brot')).toStrictEqual({
+            cleanedText: '2 g Brot',
+            extracted: ['Brot'],
+        });
+        expect(
+            extractMarkedIngredientsFromText('Erst 2 g @Teig, dann 100 ml @Milch und 2 g @Brot untermengen.')
+        ).toStrictEqual({
+            cleanedText: 'Erst 2 g Teig, dann 100 ml Milch und 2 g Brot untermengen.',
+            extracted: ['Teig', 'Milch', 'Brot'],
+        });
+    });
+
+    test('preserves whitespace before and after @-marked ingredients when highlighting in DOM', () => {
+        const container = document.createElement('div');
+        container.innerHTML = '<p>Erst 2 g @Teig, dann 100 ml @Milch und 2 g @Brot untermengen.</p>';
+
+        highlightIngredientsInDom(container);
+
+        const p = container.querySelector('p')!;
+        const tags = Array.from(p.querySelectorAll('span.recipe-ingredient-tag'));
+        expect(tags.length).toBe(3);
+        expect(tags.map((t) => t.textContent)).toEqual(['Teig', 'Milch', 'Brot']);
+
+        // Verify exact full text content has spaces intact
+        expect(p.textContent).toBe('Erst 2 g Teig, dann 100 ml Milch und 2 g Brot untermengen.');
+
+        // Verify child node sequence and whitespace preservation
+        // Child 0: "Erst 2 g "
+        expect(p.childNodes[0].textContent).toBe('Erst 2 g ');
+        // Child 1: tag "Teig"
+        expect(p.childNodes[1].textContent).toBe('Teig');
+        // Child 2: ", dann 100 ml "
+        expect(p.childNodes[2].textContent).toBe(', dann 100 ml ');
+        // Child 3: tag "Milch"
+        expect(p.childNodes[3].textContent).toBe('Milch');
+        // Child 4: " und 2 g "
+        expect(p.childNodes[4].textContent).toBe(' und 2 g ');
+        // Child 5: tag "Brot"
+        expect(p.childNodes[5].textContent).toBe('Brot');
+        // Child 6: " untermengen."
+        expect(p.childNodes[6].textContent).toBe(' untermengen.');
     });
 });
 

@@ -9,6 +9,8 @@ import {
     isListItemWithCheckbox,
     parseForQty,
     injectQuantities,
+    sanitizeIngredientListElement,
+    sortHighlightIngredients,
     ParsedRecipe,
 } from './parsing';
 import { DEFAULT_SETTINGS } from './settings';
@@ -1100,6 +1102,70 @@ describe('requireCheckboxesForIngredients option', () => {
         const scaleNumbers = qtySpans.map((s) => s.querySelector('.scale-number')?.textContent?.trim());
         expect(scaleNumbers).toContain('600');
         expect(scaleNumbers).toContain('6');
+    });
+
+    test('preserves whitespace between quantity and @-marked ingredient (2 g @Teig, 100 ml @Milch, 2 g @Brot) through sanitize and injectQuantities', () => {
+        const container = document.createElement('div');
+        container.innerHTML = `
+            <h2>Zutaten</h2>
+            <ul>
+                <li class="task-list-item"><input type="checkbox"> 2 g @Teig</li>
+                <li class="task-list-item"><input type="checkbox"> 100 ml @Milch</li>
+                <li class="task-list-item"><input type="checkbox"> 2 g @Brot</li>
+            </ul>
+        `;
+
+        const qtyScaleStore = writable(new Fraction(1));
+        const plugin = {
+            settings: {
+                ...DEFAULT_SETTINGS,
+                requireCheckboxesForIngredients: true,
+            },
+        } as any;
+
+        const ul = container.querySelector('ul')!;
+        const extracted = sanitizeIngredientListElement(ul, true);
+        expect(extracted).toEqual(['Teig', 'Milch', 'Brot']);
+
+        const result: ParsedRecipe = {
+            title: '',
+            thumbnailPath: '',
+            sections: [],
+            globalIngredients: [],
+            steps: [],
+            hasStepIngredients: false,
+            totalTimerMinutes: 0,
+            highlightIngredients: sortHighlightIngredients(extracted),
+            renderedMarkdownParent: container,
+            qtyScaleStore,
+        };
+
+        buildUnifiedRecipeStructure(result, 'test-radio', plugin);
+        injectQuantities(result);
+
+        // Simulate CheckableIngredientList mounting which calls sanitizeIngredientListElement again
+        const checkableComp = result.globalIngredients.find((c) => c.props?.list != null)!;
+        expect(checkableComp).toBeDefined();
+        const checkableUl = checkableComp.props.list as HTMLUListElement;
+        sanitizeIngredientListElement(checkableUl, true);
+
+        // Verify each LI has the space preserved between quantity span and ingredient name
+        const lis = Array.from(checkableUl.querySelectorAll('li'));
+        expect(lis.length).toBe(3);
+
+        expect(lis[0].textContent?.replace(/\u00a0/g, ' ').trim()).toBe('2 g Teig');
+        expect(lis[1].textContent?.replace(/\u00a0/g, ' ').trim()).toBe('100 ml Milch');
+        expect(lis[2].textContent?.replace(/\u00a0/g, ' ').trim()).toBe('2 g Brot');
+
+        // Check the text node following the span starts with a space
+        const firstSpan = lis[0].querySelector('span[data-qty="true"]')!;
+        expect(firstSpan.nextSibling?.textContent).toBe(' Teig');
+
+        const secondSpan = lis[1].querySelector('span[data-qty="true"]')!;
+        expect(secondSpan.nextSibling?.textContent).toBe(' Milch');
+
+        const thirdSpan = lis[2].querySelector('span[data-qty="true"]')!;
+        expect(thirdSpan.nextSibling?.textContent).toBe(' Brot');
     });
 });
 

@@ -9,11 +9,11 @@
 
 	$: void radioName;
 
-	$: if (list && highlightIngredients && highlightIngredients.length > 0) {
+	$: if (list) {
 		if (Array.isArray(list)) {
-			list.forEach((el) => highlightIngredientsInDom(el, highlightIngredients));
+			list.forEach((el) => highlightIngredientsInDom(el, highlightIngredients || []));
 		} else {
-			highlightIngredientsInDom(list, highlightIngredients);
+			highlightIngredientsInDom(list, highlightIngredients || []);
 		}
 	}
 

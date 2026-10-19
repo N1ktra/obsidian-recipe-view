@@ -169,6 +169,26 @@ export function sanitizeIngredientListElement(
             nativeCheckboxes.forEach((cb) => cb.remove());
         }
 
+        // If quantities were already injected into this LI, skip re-sanitizing
+        // to prevent stripping leading whitespace between quantity spans and text
+        if (li.querySelector("[data-qty]")) {
+            if (hasCheckbox) {
+                li.setAttribute("data-has-checkbox", "true");
+                li.setAttribute("data-checked", isChecked ? "true" : "false");
+            } else {
+                li.removeAttribute("data-has-checkbox");
+                if (requireCheckboxes) {
+                    li.removeAttribute("data-checked");
+                } else {
+                    li.setAttribute("data-checked", isChecked ? "true" : "false");
+                }
+            }
+            if (!requireCheckboxes || hasCheckbox) {
+                extractedIngredients.push(...extractAndCleanIngredientListDom(li));
+            }
+            continue;
+        }
+
         const walker = document.createTreeWalker(
             li,
             NodeFilter.SHOW_TEXT,
@@ -203,7 +223,7 @@ export function sanitizeIngredientListElement(
                     isChecked = true;
                 }
                 firstTextNode.textContent = parsed.text;
-            } else {
+            } else if (nativeCheckboxes.length > 0 || dataTask != null) {
                 firstTextNode.textContent = firstTextNode.textContent.replace(
                     /^\s+/,
                     ""
@@ -467,12 +487,9 @@ function highlightInComponent(
 }
 
 function injectHighlightedIngredients(parsedRecipe: ParsedRecipe) {
-    if (!parsedRecipe.highlightIngredients || parsedRecipe.highlightIngredients.length === 0) {
-        return;
-    }
     parsedRecipe.steps.forEach((step) => {
         step.mainComponents.forEach((c) =>
-            highlightInComponent(c, parsedRecipe.highlightIngredients)
+            highlightInComponent(c, parsedRecipe.highlightIngredients || [])
         );
     });
 }

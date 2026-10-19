@@ -478,21 +478,27 @@ function escapeRegExp(str: string): string {
 }
 
 /**
- * Build a case-insensitive RegExp that matches any of the given highlightIngredients
- * at word boundaries (supporting German umlauts and hyphens).
+ * Build a case-insensitive RegExp that matches marked ingredient terms (`@Word` or `@{Multi Word}`)
+ * as well as any keywords from `highlightIngredients` at word boundaries.
  */
 export function buildHighlightIngredientsRegex(
-    highlightIngredients: Array<string>
-): RegExp | null {
+    highlightIngredients: Array<string> = []
+): RegExp {
     const sorted = sortHighlightIngredients(highlightIngredients);
-    if (sorted.length === 0) {
-        return null;
+    const keywordPattern =
+        sorted.length > 0 ? sorted.map(escapeRegExp).join("|") : null;
+
+    if (keywordPattern) {
+        return new RegExp(
+            `(?<![a-zA-ZäöüÄÖÜß0-9_.-])(?:@\\{([^}\\r\\n]+)\\}|@([a-zA-ZäöüÄÖÜß0-9_-]+)(?![a-zA-ZäöüÄÖÜß0-9_{}-])|(${keywordPattern})(?![a-zA-ZäöüÄÖÜß0-9_-]))`,
+            "gi"
+        );
+    } else {
+        return new RegExp(
+            `(?<![a-zA-ZäöüÄÖÜß0-9_.-])(?:@\\{([^}\\r\\n]+)\\}|@([a-zA-ZäöüÄÖÜß0-9_-]+)(?![a-zA-ZäöüÄÖÜß0-9_{}-]))`,
+            "gi"
+        );
     }
-    const pattern = sorted.map(escapeRegExp).join("|");
-    return new RegExp(
-        `(?<![a-zA-ZäöüÄÖÜß0-9_-])(${pattern})(?![a-zA-ZäöüÄÖÜß0-9_-])`,
-        "gi"
-    );
 }
 
 /**
@@ -500,22 +506,28 @@ export function buildHighlightIngredientsRegex(
  */
 export function matchHighlightedIngredientsInStep(
     stepText: string,
-    highlightIngredients: Array<string>
+    highlightIngredients: Array<string> = []
 ): Array<IngredientTagMatch> {
-    if (!stepText || !highlightIngredients || highlightIngredients.length === 0) {
+    if (!stepText) {
         return [];
     }
     const regex = buildHighlightIngredientsRegex(highlightIngredients);
-    if (!regex) {
-        return [];
-    }
     const results: Array<IngredientTagMatch> = [];
     for (const match of stepText.matchAll(regex)) {
-        const matchedText = match[1] || match[0];
+        const bracketedName = match[1]?.trim();
+        const singleWordName = match[2]?.trim();
+        const keywordName = match[3]?.trim();
+        if (singleWordName && singleWordName.toLowerCase() === "timer") {
+            continue;
+        }
+        const name = bracketedName || singleWordName || keywordName || match[0];
+        if (!name) {
+            continue;
+        }
         results.push({
             index: match.index ?? 0,
-            length: matchedText.length,
-            name: matchedText,
+            length: match[0].length,
+            name,
         });
     }
     return results;
@@ -528,15 +540,9 @@ export function matchHighlightedIngredientsInStep(
  */
 export function highlightIngredientsInDom(
     node: Node,
-    highlightIngredients: Array<string>
+    highlightIngredients: Array<string> = []
 ): void {
-    if (!highlightIngredients || highlightIngredients.length === 0) {
-        return;
-    }
     const regex = buildHighlightIngredientsRegex(highlightIngredients);
-    if (!regex) {
-        return;
-    }
     highlightIngredientsWithRegex(node, regex);
 }
 
@@ -577,8 +583,18 @@ function highlightIngredientsWithRegex(node: Node, regex: RegExp): void {
 
         let currentIndex = 0;
         for (const match of matches) {
+            const bracketedName = match[1]?.trim();
+            const singleWordName = match[2]?.trim();
+            const keywordName = match[3]?.trim();
+            if (singleWordName && singleWordName.toLowerCase() === "timer") {
+                continue;
+            }
+            const matchedName = bracketedName || singleWordName || keywordName || match[0];
+            if (!matchedName) {
+                continue;
+            }
+
             const matchIndex = match.index ?? 0;
-            const matchedText = match[1] || match[0];
             if (matchIndex > currentIndex) {
                 parent.insertBefore(
                     document.createTextNode(text.slice(currentIndex, matchIndex)),
@@ -590,10 +606,10 @@ function highlightIngredientsWithRegex(node: Node, regex: RegExp): void {
             tagSpan.className = "recipe-ingredient-tag";
             tagSpan.setAttribute("data-ingredient-tag", "true");
             tagSpan.setAttribute("data-qty-no-parse", "true");
-            tagSpan.textContent = matchedText;
+            tagSpan.textContent = matchedName;
 
             parent.insertBefore(tagSpan, node);
-            currentIndex = matchIndex + matchedText.length;
+            currentIndex = matchIndex + match[0].length;
         }
 
         if (currentIndex < text.length) {
