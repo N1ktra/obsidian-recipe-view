@@ -84,40 +84,11 @@
 		return true;
 	}
 
-	function formatFrontmatterValue(
+	function formatSingleValue(
 		key: string,
 		value: any
 	): string | undefined {
-		if (!hasNonEmptyValue(value)) {
-			return undefined;
-		}
-
-		// See if it's a URL
-		try {
-			let url = new URL(value);
-			return createEl("a", {
-				href: url.toString(),
-				text: url.host,
-			}).outerHTML;
-		} catch (e) {
-			/* empty */
-		}
-
-		// See if it's tags
-		if (key.trim().toLowerCase() == "tags" && Array.isArray(value)) {
-			return value
-				.map((tag: string) => {
-					let a = createEl("a", {
-						cls: "tag",
-						href: "#" + tag,
-						text: "#" + tag,
-					});
-					a.setAttribute("target", "_blank");
-					a.setAttribute("rel", "noopener");
-					return a.outerHTML;
-				})
-				.join(" ");
-		}
+		if (value == null) return undefined;
 
 		if (typeof value === "number" || typeof value === "boolean") {
 			return String(value);
@@ -128,18 +99,86 @@
 			if (!trimmed) {
 				return undefined;
 			}
-			const markdownContainer = createSpan();
-			MarkdownRenderer.render(
-				app,
-				trimmed,
-				markdownContainer,
-				file.path,
-				view
-			);
-			return markdownContainer.children.item(0)?.innerHTML || trimmed;
+
+			// See if it's a URL
+			try {
+				let url = new URL(trimmed);
+				return createEl("a", {
+					href: url.toString(),
+					text: url.host,
+				}).outerHTML;
+			} catch (e) {
+				/* empty */
+			}
+
+			// If it's tags
+			if (key.trim().toLowerCase() === "tags") {
+				const tagClean = trimmed.replace(/^#/, "");
+				if (tagClean) {
+					let a = createEl("a", {
+						cls: "tag",
+						href: "#" + tagClean,
+						text: "#" + tagClean,
+					});
+					a.setAttribute("target", "_blank");
+					a.setAttribute("rel", "noopener");
+					return a.outerHTML;
+				}
+			}
+
+			if (typeof MarkdownRenderer !== "undefined" && app && file) {
+				try {
+					const markdownContainer = createSpan();
+					MarkdownRenderer.render(
+						app,
+						trimmed,
+						markdownContainer,
+						file.path,
+						view
+					);
+					const html =
+						markdownContainer.children.item(0)?.innerHTML ||
+						markdownContainer.innerHTML;
+					if (html?.trim()) {
+						return html.trim();
+					}
+				} catch (_e) {
+					/* fallback */
+				}
+			}
+			return trimmed;
 		}
 
-		return undefined;
+		if (typeof value === "object") {
+			try {
+				return JSON.stringify(value);
+			} catch (_e) {
+				return undefined;
+			}
+		}
+
+		return String(value);
+	}
+
+	function formatFrontmatterValue(
+		key: string,
+		value: any
+	): string | undefined {
+		if (!hasNonEmptyValue(value)) {
+			return undefined;
+		}
+
+		const isTags = key.trim().toLowerCase() === "tags";
+
+		if (Array.isArray(value)) {
+			const formattedItems = value
+				.map((v) => formatSingleValue(key, v))
+				.filter((v): v is string => Boolean(v && v.trim()));
+			if (formattedItems.length === 0) return undefined;
+			return isTags ? formattedItems.join(" ") : formattedItems.join(", ");
+		}
+
+		return formatSingleValue(key, value);
 	}
 
 	function startEditing(item: HeaderPropertyItem, e: MouseEvent) {
@@ -369,6 +408,12 @@
 	$: reservedKeys = new Set([
 		coverKey,
 		servingsKey,
+		"cover",
+		"cover_image",
+		"coverimage",
+		"thumbnail",
+		"title",
+		"description",
 		"position",
 		"cssclasses",
 		"cssclass",
