@@ -310,7 +310,7 @@ export class RecipeViewSettingsTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName("Maximum pixel width for single-column view")
 			.setDesc(
-				"Recipe cards shown wider than this view will switch to two-column layout."
+				"Recipe cards wider than this pixel width (on desktop and tablet) will switch to two-column layout. Smartphones always remain in single-column layout."
 			)
 			.addSlider((slider) =>
 				slider

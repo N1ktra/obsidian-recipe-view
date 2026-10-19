@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { CachedMetadata, Component, TFile } from "obsidian";
+	import { CachedMetadata, Component, Platform, TFile } from "obsidian";
 	import RecipeCardTitleBlock from "./RecipeCardTitleBlock.svelte";
 	import RecipeViewPlugin from "./main";
 	import store from "./store";
@@ -123,6 +123,15 @@
 	$: isBelowSingleColumnWidth =
 		!containerWidth ||
 		containerWidth < plugin.settings.singleColumnMaxWidth;
+
+	$: isPhone =
+		(typeof Platform !== "undefined" && Boolean(Platform?.isPhone)) ||
+		(typeof document !== "undefined" &&
+			document.body.classList.contains("is-phone"));
+
+	// On smartphones, always use single-column view.
+	// On tablets and desktop, dynamically switch according to container width / settings.
+	$: singleColumn = isPhone || isBelowSingleColumnWidth;
 
 	// DOM searching and manipulating keyboard shortcuts
 	let container: HTMLDivElement;
@@ -271,7 +280,7 @@
 		globalIngredients={parsedRecipe?.globalIngredients || []}
 		steps={parsedRecipe?.steps || []}
 		sections={parsedRecipe?.sections || []}
-		singleColumn={Boolean(isBelowSingleColumnWidth)}
+		singleColumn={Boolean(singleColumn)}
 	>
 		<ScaleSelector
 			slot="scaleselector"
@@ -286,7 +295,7 @@
 			{frontmatter}
 			totalTimerMinutes={parsedRecipe?.totalTimerMinutes ?? 0}
 			thumbnailPath={parsedRecipe?.thumbnailPath}
-			singleColumn={Boolean(isBelowSingleColumnWidth)}
+			singleColumn={Boolean(singleColumn)}
 			app={plugin.app}
 			{file}
 			{view}

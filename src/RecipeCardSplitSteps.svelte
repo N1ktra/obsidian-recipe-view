@@ -675,72 +675,40 @@
 		margin-block-end: 0 !important;
 	}
 
-	/* Responsive mobile / narrow window layout (singleColumn) */
+	/* Responsive phone / narrow container layout (singleColumn) */
 	.recipe-card.split-steps.single-column .recipe-top-grid,
-	:global(body.is-mobile) .recipe-card.split-steps .recipe-top-grid {
+	:global(body.is-phone) .recipe-card.split-steps .recipe-top-grid {
 		grid-template-columns: 1fr;
 		grid-template-rows: auto;
 		row-gap: var(--size-4-4);
 	}
 
 	.recipe-card.split-steps.single-column .top-title-area,
-	:global(body.is-mobile) .recipe-card.split-steps .top-title-area {
+	:global(body.is-phone) .recipe-card.split-steps .top-title-area {
 		grid-column: 1;
 		grid-row: 1;
 	}
 
 	.recipe-card.split-steps.single-column .top-sidebar-area,
-	:global(body.is-mobile) .recipe-card.split-steps .top-sidebar-area {
+	:global(body.is-phone) .recipe-card.split-steps .top-sidebar-area {
 		grid-column: 1;
 		grid-row: 2;
 	}
 
 	.recipe-card.split-steps.single-column .top-steps-area,
-	:global(body.is-mobile) .recipe-card.split-steps .top-steps-area {
+	:global(body.is-phone) .recipe-card.split-steps .top-steps-area {
 		grid-column: 1;
 		grid-row: 3;
 	}
 
 	.recipe-card.split-steps.single-column .recipe-step-row,
-	:global(body.is-mobile) .recipe-card.split-steps .recipe-step-row {
+	:global(body.is-phone) .recipe-card.split-steps .recipe-step-row {
 		grid-template-columns: 1fr;
 		gap: var(--size-4-2);
 	}
 
 	.recipe-card.split-steps.single-column .step-ingredients-empty,
-	:global(body.is-mobile) .recipe-card.split-steps .step-ingredients-empty {
+	:global(body.is-phone) .recipe-card.split-steps .step-ingredients-empty {
 		display: none;
-	}
-
-	@media (max-width: 650px) {
-		.recipe-top-grid {
-			grid-template-columns: 1fr;
-			grid-template-rows: auto;
-			row-gap: var(--size-4-4);
-		}
-
-		.top-title-area {
-			grid-column: 1;
-			grid-row: 1;
-		}
-
-		.top-sidebar-area {
-			grid-column: 1;
-			grid-row: 2;
-		}
-
-		.top-steps-area {
-			grid-column: 1;
-			grid-row: 3;
-		}
-
-		.recipe-step-row {
-			grid-template-columns: 1fr;
-			gap: var(--size-4-2);
-		}
-
-		.step-ingredients-empty {
-			display: none;
-		}
 	}
 </style>

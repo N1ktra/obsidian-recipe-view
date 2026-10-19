@@ -662,14 +662,14 @@
 		outline: none;
 	}
 
-	/* Single-column & mobile layout: keep cover thumbnail on the left and title/properties on the right */
+	/* Single-column & phone layout: keep cover thumbnail on the left and title/properties on the right */
 	.single-column.title-block,
-	:global(body.is-mobile) .title-block {
+	:global(body.is-phone) .title-block {
 		flex-direction: row;
 		align-items: flex-start;
 	}
 	.single-column img.thumbnail,
-	:global(body.is-mobile) img.thumbnail {
+	:global(body.is-phone) img.thumbnail {
 		height: var(--thumbnail-size-mobile, 90px);
 		width: var(--thumbnail-size-mobile, 90px);
 		flex: 0 0 var(--thumbnail-size-mobile, 90px);
