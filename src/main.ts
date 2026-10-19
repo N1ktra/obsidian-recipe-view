@@ -2,6 +2,7 @@ import {
 	App,
 	Keymap,
 	MarkdownView,
+	Platform,
 	Plugin,
 	PluginSettingTab,
 	Setting,
@@ -56,12 +57,18 @@ export default class RecipeViewPlugin extends Plugin {
 			})
 		);
 		this.registerEvent(
-			this.app.workspace.on("file-open", () => {
+			this.app.workspace.on("file-open", (file) => {
+				if (file) {
+					this.ensureReadingModeIfRecipe(file);
+				}
 				this.updateAllReadingViews();
 			})
 		);
 		this.registerEvent(
-			this.app.workspace.on("active-leaf-change", () => {
+			this.app.workspace.on("active-leaf-change", (leaf) => {
+				if (leaf?.view instanceof MarkdownView && leaf.view.file) {
+					this.ensureReadingModeIfRecipe(leaf.view.file, leaf);
+				}
 				this.updateAllReadingViews();
 			})
 		);
@@ -79,8 +86,90 @@ export default class RecipeViewPlugin extends Plugin {
 		store.plugin.set(this);
 
 		this.app.workspace.onLayoutReady(() => {
+			const activeLeaf = this.app.workspace.getActiveViewOfType(MarkdownView)?.leaf;
+			const activeFile = this.app.workspace.getActiveFile();
+			if (activeLeaf && activeFile) {
+				this.ensureReadingModeIfRecipe(activeFile, activeLeaf);
+			}
 			this.updateAllReadingViews();
 		});
+	}
+
+	async checkAndSwitchLeafToPreview(leaf: WorkspaceLeaf, file: TFile): Promise<boolean> {
+		if (!(leaf.view instanceof MarkdownView) || leaf.view.file?.path !== file.path) {
+			return false;
+		}
+
+		if (leaf.view.getMode() !== "preview") {
+			await leaf.setViewState({
+				...leaf.getViewState(),
+				state: {
+					...leaf.getViewState().state,
+					mode: "preview",
+				},
+			});
+			return true;
+		}
+		return false;
+	}
+
+	async ensureReadingModeIfRecipe(file: TFile, targetLeaf?: WorkspaceLeaf) {
+		const autoSwitch = this.settings.autoSwitchToReadingMode ?? true;
+		if (!this.settings.autoRenderReadingView || !autoSwitch) {
+			return;
+		}
+
+		// 1. Check cache first
+		let metadata = this.app.metadataCache.getFileCache(file);
+		let isRecipe = isRecipeNote(
+			metadata?.frontmatter,
+			metadata?.headings,
+			this.settings
+		);
+
+		// 2. If not yet cached (e.g. freshly loaded file), read frontmatter directly
+		if (!isRecipe && (!metadata || !metadata.frontmatter)) {
+			try {
+				const content = await this.app.vault.cachedRead(file);
+				// Quick regex check for recipe frontmatter markers or ingredients headings
+				const hasRecipeFm = /(?:^|\n)(?:type:\s*(?:['"]?rezept['"]?|['"]?recipe['"]?)|recipe:\s*true|rezept:\s*true|servings:\s*\d+)/i.test(content);
+				const hasIngHeader = /(?:^|\n)#{1,6}\s*(?:ingredients|zutaten)\b/i.test(content);
+				if (hasRecipeFm || hasIngHeader) {
+					isRecipe = true;
+				}
+			} catch (_err) {
+				/* ignore */
+			}
+		}
+
+		if (!isRecipe) {
+			return;
+		}
+
+		const findMatchingLeaves = (): Array<WorkspaceLeaf> => {
+			if (targetLeaf && targetLeaf.view instanceof MarkdownView && targetLeaf.view.file?.path === file.path) {
+				return [targetLeaf];
+			}
+			const leaves: Array<WorkspaceLeaf> = [];
+			this.app.workspace.iterateAllLeaves((l) => {
+				if (l.view instanceof MarkdownView && l.view.file?.path === file.path) {
+					leaves.push(l);
+				}
+			});
+			return leaves;
+		};
+
+		// Immediate attempt: switch if leaf is already ready
+		for (const leaf of findMatchingLeaves()) {
+			void this.checkAndSwitchLeafToPreview(leaf, file);
+		}
+
+		// Secondary delayed attempt (handles mobile lifecycle / async leaf initialization)
+		window.setTimeout(() => {
+			for (const leaf of findMatchingLeaves()) {
+				void this.checkAndSwitchLeafToPreview(leaf, file);
+			}
+		}, 120);
 	}
 
 	onunload() {

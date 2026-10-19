@@ -130,11 +130,20 @@ body.is-mobile .recipe-view-reading-container {
   display: inline-block;
   padding: 1px 6px;
   border-radius: var(--radius-s);
-  background-color: var(--background-modifier-hover);
-  color: var(--text-normal);
   font-weight: 500;
-  border: 1px solid var(--background-modifier-border);
   vertical-align: baseline;
+
+  /* Dynamischer Kontrast über Theme-Variablen */
+  background-color: var(--tag-background, var(--background-modifier-hover));
+  color: var(--tag-color, var(--text-accent));
+  border: 1px solid var(--tag-border, var(--background-modifier-border-focus));
+}
+
+/* Spezifische Optimierung für Obsidian Dark Mode */
+.theme-dark .recipe-ingredient-tag {
+  background-color: rgba(var(--color-accent-rgb, 120, 120, 255), 0.15);
+  color: var(--text-accent-hover, var(--text-accent));
+  border-color: rgba(var(--color-accent-rgb, 120, 120, 255), 0.35);
 }
 
 /* Ensure .recipe-step-row has a comfortable buffer around inner ingredients and instructions
@@ -143,8 +152,13 @@ body.is-mobile .recipe-view-reading-container {
   width: 100% !important;
   max-width: 100% !important;
   box-sizing: border-box;
-  padding: var(--size-4-2) !important;
+  padding: var(--size-4-2) 0 !important;
   border-radius: var(--radius-m);
+}
+
+.recipe-step-row:not(.is-heading-row),
+.top-step-item {
+  cursor: pointer;
 }
 
 .recipe-step-row *,
@@ -157,7 +171,7 @@ body.is-mobile .recipe-view-reading-container {
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
-  padding: var(--size-4-2) !important;
+  padding: var(--size-4-2) 0 !important;
   border-radius: var(--radius-m);
 }
 
@@ -166,6 +180,7 @@ body.is-mobile .recipe-view-reading-container {
 .recipe-step-row .step-card-ingredients {
   box-sizing: border-box;
   margin: 0;
+  align-self: start;
 }
 
 .step-right-cell {
@@ -178,8 +193,7 @@ body.is-mobile .recipe-view-reading-container {
   padding: var(--size-4-1) var(--size-4-2);
 }
 
-.recipe-step-row.is-selected,
-.recipe-step-row:has(input[type="radio"]:checked) {
+.recipe-step-row.is-selected {
   box-shadow: 0 0 0 1px var(--interactive-accent);
 }
 
@@ -194,22 +208,18 @@ body.is-mobile .recipe-view-reading-container {
 .recipe-step-row:hover .step-card-number,
 .recipe-step-row:has(.step-card-main:hover) .step-card-number,
 .recipe-step-row.is-selected .step-card-number,
-.recipe-step-row:has(input[type="radio"]:checked) .step-card-number,
 .top-step-item:hover .step-card-number,
 .top-step-item:has(.step-card-main:hover) .step-card-number,
-.top-step-item.is-selected .step-card-number,
-.top-step-item:has(input[type="radio"]:checked) .step-card-number {
+.top-step-item.is-selected .step-card-number {
   color: var(--text-accent);
 }
 
 .recipe-step-row:hover .step-card-body :is(h1, h2, h3, h4, h5, h6, .step-title),
 .recipe-step-row:has(.step-card-main:hover) .step-card-body :is(h1, h2, h3, h4, h5, h6, .step-title),
 .recipe-step-row.is-selected .step-card-body :is(h1, h2, h3, h4, h5, h6, .step-title),
-.recipe-step-row:has(input[type="radio"]:checked) .step-card-body :is(h1, h2, h3, h4, h5, h6, .step-title),
 .top-step-item:hover .step-card-body :is(h1, h2, h3, h4, h5, h6, .step-title),
 .top-step-item:has(.step-card-main:hover) .step-card-body :is(h1, h2, h3, h4, h5, h6, .step-title),
-.top-step-item.is-selected .step-card-body :is(h1, h2, h3, h4, h5, h6, .step-title),
-.top-step-item:has(input[type="radio"]:checked) .step-card-body :is(h1, h2, h3, h4, h5, h6, .step-title) {
+.top-step-item.is-selected .step-card-body :is(h1, h2, h3, h4, h5, h6, .step-title) {
   color: var(--text-accent);
 }
 

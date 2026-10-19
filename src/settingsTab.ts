@@ -36,6 +36,20 @@ export class RecipeViewSettingsTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
+			.setName("Automatically switch to Reading View for recipes")
+			.setDesc(
+				"When opening a note that is recognized as a recipe, automatically switch the pane to Reading View (on both Desktop and Mobile)."
+			)
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.autoSwitchToReadingMode ?? true)
+					.onChange(async (value) => {
+						this.plugin.settings.autoSwitchToReadingMode = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(containerEl)
 			.setName("Frontmatter filter key")
 			.setDesc(
 				'Frontmatter property key used to identify recipe notes in Reading View (e.g. "type"). Notes with "recipe: true", "servings", or an "Ingredients"/"Zutaten" heading are also detected automatically.'

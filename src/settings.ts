@@ -15,6 +15,7 @@ export interface RecipeViewSettings {
 	timerUrlTemplate: string;
 	timerTimeFormat: TimerTimeFormat;
 	autoRenderReadingView: boolean;
+	autoSwitchToReadingMode: boolean;
 	recipeFilterKey: string;
 	recipeFilterValue: string;
 	requireCheckboxesForIngredients: boolean;
@@ -43,6 +44,7 @@ export const DEFAULT_SETTINGS: RecipeViewSettings = {
 	timerUrlTemplate: "",
 	timerTimeFormat: "de",
 	autoRenderReadingView: true,
+	autoSwitchToReadingMode: true,
 	recipeFilterKey: "type",
 	recipeFilterValue: "rezept",
 	requireCheckboxesForIngredients: true,

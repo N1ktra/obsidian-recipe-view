@@ -4,8 +4,10 @@
 
 	export let list: HTMLOListElement | Array<HTMLElement>;
 	export let kind: string;
-	export let radioName: string;
+	export let radioName: string = "";
 	export let highlightIngredients: Array<string> = [];
+
+	$: void radioName;
 
 	$: if (list && highlightIngredients && highlightIngredients.length > 0) {
 		if (Array.isArray(list)) {
@@ -38,15 +40,12 @@
 		<ol class="recipe-mutex-select">
 			{#each olChildren() as _, i}
 				<li class="step-list-item">
-					<label class="step-label">
-						<input type="radio" name={radioName} />
-						<div class="leaf step-flex">
-							<span class="step-number">{olStart() + i}.</span>
-							<div class="step-body">
-								<RecipeLeaf childNodesOf={olChild(i)} asTag="div" />
-							</div>
+					<div class="leaf step-flex">
+						<span class="step-number">{olStart() + i}.</span>
+						<div class="step-body">
+							<RecipeLeaf childNodesOf={olChild(i)} asTag="div" />
 						</div>
-					</label>
+					</div>
 				</li>
 			{/each}
 		</ol>
@@ -56,14 +55,11 @@
 	<div class="selectable-step-list recipe-mutex-p-list">
 		{#each pList() as p}
 			<div class="step-p-item">
-				<label class="step-label">
-					<input type="radio" name={radioName} />
-					<div class="leaf">
-						<div class="step-body">
-							<RecipeLeaf childNodesOf={p} asTag="div" />
-						</div>
+				<div class="leaf">
+					<div class="step-body">
+						<RecipeLeaf childNodesOf={p} asTag="div" />
 					</div>
-				</label>
+				</div>
 			</div>
 		{/each}
 	</div>
@@ -101,34 +97,9 @@
 		border-bottom: none;
 	}
 
-	li.step-list-item:has(input[type="radio"]:checked),
-	.step-p-item:has(input[type="radio"]:checked) {
-		border-bottom-color: transparent;
-	}
-
 	li.step-list-item::marker {
 		content: none !important;
 		display: none !important;
-	}
-
-	input[type="radio"] {
-		opacity: 0;
-		position: absolute;
-		height: 100%;
-		width: 100%;
-		margin: 0;
-		padding: 0;
-		z-index: -1;
-		pointer-events: none;
-	}
-
-	label.step-label {
-		position: relative;
-		display: block;
-		cursor: pointer;
-		width: 100%;
-		margin: 0;
-		-webkit-tap-highlight-color: transparent;
 	}
 
 	/* Transparent 1px border in default state prevents layout jumping when selected */
@@ -176,29 +147,6 @@
 
 	.step-body :global(.list-bullet) {
 		display: none !important;
-	}
-
-	/* Hover feedback on desktop */
-	@media (hover: hover) {
-		label.step-label:hover .leaf {
-			background-color: var(--background-modifier-hover);
-		}
-	}
-
-	/* Selected / active step: full 1px accent border + rounded secondary background */
-	input[type="radio"]:checked ~ .leaf {
-		border: 1px solid var(--interactive-accent);
-		border-radius: var(--radius-m);
-		background-color: var(--background-secondary);
-	}
-
-	input[type="radio"]:checked ~ .leaf .step-number {
-		color: var(--text-accent);
-		font-weight: 600;
-	}
-
-	input[type="radio"]:focus-visible ~ .leaf {
-		border-color: var(--interactive-accent);
 	}
 
 	/* Inside Split-Steps (.step-card-body), the parent .step-card handles the row border & highlight */

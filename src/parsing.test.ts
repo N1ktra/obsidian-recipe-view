@@ -831,6 +831,156 @@ describe('requireCheckboxesForIngredients option', () => {
         expect(checkableUl.textContent).toContain('100 g Salz');
         expect(checkableUl.textContent).not.toContain('Hinweis: Vor Feuchtigkeit schützen');
     });
+
+    test('Problem A: Checklist item followed immediately by bullet points splits into stepIngredients and instructions', () => {
+        const plugin = {
+            settings: {
+                ...DEFAULT_SETTINGS,
+                requireCheckboxesForIngredients: true,
+            },
+        } as any;
+
+        const container = document.createElement('div');
+        // HTML rendered from:
+        // ## Zubereitung
+        // ## Schritt 1
+        // - [ ] 200 g Mehl
+        // - Rühren bis glatt
+        // - In die Pfanne geben
+        container.innerHTML = `
+            <h2>Zubereitung</h2>
+            <h2>Schritt 1</h2>
+            <ul>
+                <li><input type="checkbox"> 200 g Mehl</li>
+                <li>Rühren bis glatt</li>
+                <li>In die Pfanne geben</li>
+            </ul>
+        `;
+
+        const result: ParsedRecipe = {
+            title: '',
+            thumbnailPath: '',
+            sections: [],
+            globalIngredients: [],
+            steps: [],
+            hasStepIngredients: false,
+            totalTimerMinutes: 0,
+            highlightIngredients: [],
+            renderedMarkdownParent: container,
+            qtyScaleStore: writable(new Fraction(1)),
+        };
+
+        buildUnifiedRecipeStructure(result, 'radio-prob-a', plugin);
+
+        expect(result.steps.length).toBe(1);
+        const step = result.steps[0];
+        // stepIngredients should only have "200 g Mehl"
+        expect(step.stepIngredients.length).toBe(1);
+        const ingUl = step.stepIngredients[0].props.list as HTMLElement;
+        expect(ingUl.textContent).toContain('200 g Mehl');
+        expect(ingUl.textContent).not.toContain('Rühren bis glatt');
+
+        // mainComponents contains the headerElement RecipeLeaf plus the bullet instructions RecipeLeaf
+        expect(step.mainComponents.length).toBe(2);
+        const instUl = step.mainComponents[1].props.childNodesOf as HTMLElement;
+        expect(instUl.textContent).toContain('Rühren bis glatt');
+        expect(instUl.textContent).toContain('In die Pfanne geben');
+        expect(instUl.textContent).not.toContain('200 g Mehl');
+    });
+
+    test('Problem B: Loose list items with blank lines retain their paragraph text and stay in single step', () => {
+        const plugin = {
+            settings: {
+                ...DEFAULT_SETTINGS,
+                requireCheckboxesForIngredients: false,
+            },
+        } as any;
+
+        const container = document.createElement('div');
+        // HTML from loose list:
+        // - Schritt A
+        //
+        // - Schritt B
+        container.innerHTML = `
+            <h2>Zubereitung</h2>
+            <h2>Schritt 1</h2>
+            <ul>
+                <li><p>Schritt A</p></li>
+                <li><p>Schritt B</p></li>
+            </ul>
+        `;
+
+        const result: ParsedRecipe = {
+            title: '',
+            thumbnailPath: '',
+            sections: [],
+            globalIngredients: [],
+            steps: [],
+            hasStepIngredients: false,
+            totalTimerMinutes: 0,
+            highlightIngredients: [],
+            renderedMarkdownParent: container,
+            qtyScaleStore: writable(new Fraction(1)),
+        };
+
+        buildUnifiedRecipeStructure(result, 'radio-prob-b', plugin);
+
+        expect(result.steps.length).toBe(1);
+        const step = result.steps[0];
+        expect(step.stepIngredients.length).toBe(1);
+        const ingUl = step.stepIngredients[0].props.list as HTMLElement;
+        expect(ingUl.textContent).toContain('Schritt A');
+        expect(ingUl.textContent).toContain('Schritt B');
+    });
+
+    test('Mayo step without text produces valid step with stepIngredients and only header in mainComponents', () => {
+        const plugin = {
+            settings: {
+                ...DEFAULT_SETTINGS,
+                requireCheckboxesForIngredients: true,
+            },
+        } as any;
+
+        const container = document.createElement('div');
+        container.innerHTML = `
+            <h2>Zubereitung</h2>
+            <h2>Mayo</h2>
+            <ul>
+                <li><input type="checkbox"> 1 Eigelb</li>
+                <li><input type="checkbox"> 100 ml Öl</li>
+            </ul>
+            <h2>Fries</h2>
+            <p>Kartoffeln schneiden und frittieren.</p>
+        `;
+
+        const result: ParsedRecipe = {
+            title: '',
+            thumbnailPath: '',
+            sections: [],
+            globalIngredients: [],
+            steps: [],
+            hasStepIngredients: false,
+            totalTimerMinutes: 0,
+            highlightIngredients: [],
+            renderedMarkdownParent: container,
+            qtyScaleStore: writable(new Fraction(1)),
+        };
+
+        buildUnifiedRecipeStructure(result, 'radio-mayo', plugin);
+
+        expect(result.steps.length).toBe(2);
+        const mayoStep = result.steps[0];
+        expect(mayoStep.stepTitle).toBe('Mayo');
+        expect(mayoStep.stepIngredients.length).toBe(1);
+        // Only the header is in mainComponents, no instruction text
+        expect(mayoStep.mainComponents.length).toBe(1);
+        expect(mayoStep.mainComponents[0].props.asTag).toBe('H2');
+
+        const friesStep = result.steps[1];
+        expect(friesStep.stepTitle).toBe('Fries');
+        // Header + paragraph instruction = 2 components
+        expect(friesStep.mainComponents.length).toBe(2);
+    });
 });
 
 

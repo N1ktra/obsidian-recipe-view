@@ -556,7 +556,30 @@ export function extractTrailingInstructionsFromList(ul: HTMLElement): Array<HTML
         // 1. Any child <p> elements inside <li> from lazy continuation
         const childParagraphs = Array.from(li.querySelectorAll("p"));
         if (childParagraphs.length > 0) {
-            for (const p of childParagraphs) {
+            // Check if there is non-whitespace text before the first <p>
+            let hasPrecedingText = false;
+            for (let i = 0; i < li.childNodes.length; i++) {
+                const node = li.childNodes[i];
+                if (node === childParagraphs[0]) {
+                    break;
+                }
+                if (
+                    node.nodeType === Node.TEXT_NODE &&
+                    (node.textContent || "").trim().length > 0
+                ) {
+                    hasPrecedingText = true;
+                    break;
+                }
+            }
+
+            // In loose lists (<li><p>Text</p></li>), childParagraphs[0] is the list item's own text.
+            // Only extract trailing paragraphs: if hasPrecedingText, all childParagraphs are trailing;
+            // otherwise, the first <p> is the item's text, and childParagraphs.slice(1) are trailing.
+            const trailingParas = hasPrecedingText
+                ? childParagraphs
+                : childParagraphs.slice(1);
+
+            for (const p of trailingParas) {
                 p.remove();
                 if ((p.textContent || "").trim().length > 0) {
                     extractedParagraphs.push(p);
@@ -932,8 +955,18 @@ export function buildUnifiedRecipeStructure(
                     );
 
                     if (requireCheckboxes) {
-                        const checkboxLis = lis.filter((li) => isListItemWithCheckbox(li));
-                        const nonCheckboxLis = lis.filter((li) => !isListItemWithCheckbox(li));
+                        const firstNonCheckboxIdx = lis.findIndex(
+                            (li) => !isListItemWithCheckbox(li)
+                        );
+
+                        const checkboxLis =
+                            firstNonCheckboxIdx === -1
+                                ? lis
+                                : lis.slice(0, firstNonCheckboxIdx);
+                        const nonCheckboxLis =
+                            firstNonCheckboxIdx === -1
+                                ? []
+                                : lis.slice(firstNonCheckboxIdx);
 
                         if (checkboxLis.length > 0) {
                             const ingUl = item.cloneNode(false) as HTMLElement;
