@@ -43,6 +43,8 @@ export {
     highlightIngredientsInDom,
     LEADING_CHECKBOX_REGEX,
     stripLeadingCheckboxSyntax,
+    parseForQty,
+    injectQuantities,
 };
 export type { ParsedCheckboxText };
 
@@ -167,7 +169,19 @@ export function sanitizeIngredientListElement(
             nativeCheckboxes.forEach((cb) => cb.remove());
         }
 
-        const walker = document.createTreeWalker(li, NodeFilter.SHOW_TEXT);
+        const walker = document.createTreeWalker(
+            li,
+            NodeFilter.SHOW_TEXT,
+            {
+                acceptNode: (node) => {
+                    const el = node.parentElement;
+                    if (el?.closest("[data-qty]") || el?.closest(".recipe-timer-btn")) {
+                        return NodeFilter.FILTER_REJECT;
+                    }
+                    return NodeFilter.FILTER_ACCEPT;
+                },
+            }
+        );
         let firstTextNode: Text | null = null;
         while (walker.nextNode()) {
             const current = walker.currentNode as Text;
@@ -189,7 +203,7 @@ export function sanitizeIngredientListElement(
                     isChecked = true;
                 }
                 firstTextNode.textContent = parsed.text;
-            } else if (nativeCheckboxes.length > 0 || dataTask != null) {
+            } else {
                 firstTextNode.textContent = firstTextNode.textContent.replace(
                     /^\s+/,
                     ""
@@ -295,9 +309,11 @@ export function resolveCoverImage(
 
 function parseForQty(n: Node, qtyScaleStore: Writable<Fraction>) {
     if (n.nodeType == Node.ELEMENT_NODE) {
+        const el = n as HTMLElement;
         if (
-            (n as HTMLElement).hasAttribute("data-qty") ||
-            (n as HTMLElement).hasAttribute("data-qty-no-parse")
+            el.hasAttribute("data-qty") ||
+            el.hasAttribute("data-qty-no-parse") ||
+            el.classList.contains("scale-selector")
         ) {
             return;
         }
@@ -307,32 +323,44 @@ function parseForQty(n: Node, qtyScaleStore: Writable<Fraction>) {
         const parent = n.parentNode!;
         let currentIndex = 0;
         n.textContent = n.textContent!.normalize("NFKD").replaceAll("\u2044", "/");
-        for (const match of matchQuantities(n.textContent!)) {
-            parent.insertBefore(
-                document.createTextNode(
-                    n.textContent!.slice(currentIndex, match.index)
-                ),
-                n
-            );
-            const qtyTarget = createEl("span");
-            qtyTarget.setAttribute("data-qty", "true");
-            parent.insertBefore(qtyTarget, n);
-            new ScaledQuantity({
-                target: qtyTarget,
-                props: {
-                    value: match.value.value,
-                    format: match.value.format,
-                    unit: match.unit,
-                    qtyScaleStore: qtyScaleStore,
-                },
-            });
-            currentIndex = (match.index || currentIndex) + match.length;
+        const quantities = matchQuantities(n.textContent!);
+        if (quantities.length > 0) {
+            for (const match of quantities) {
+                const matchIndex = match.index ?? currentIndex;
+                if (matchIndex > currentIndex) {
+                    parent.insertBefore(
+                        document.createTextNode(
+                            n.textContent!.slice(currentIndex, matchIndex)
+                        ),
+                        n
+                    );
+                }
+                const qtyTarget =
+                    typeof createEl === "function"
+                        ? createEl("span")
+                        : document.createElement("span");
+                qtyTarget.setAttribute("data-qty", "true");
+                parent.insertBefore(qtyTarget, n);
+                new ScaledQuantity({
+                    target: qtyTarget,
+                    props: {
+                        value: match.value.value,
+                        format: match.value.format,
+                        unit: match.unit,
+                        qtyScaleStore: qtyScaleStore,
+                    },
+                });
+                currentIndex = matchIndex + match.length;
+            }
+            if (currentIndex < n.textContent!.length) {
+                parent.insertBefore(
+                    document.createTextNode(n.textContent!.slice(currentIndex)),
+                    n
+                );
+            }
+            parent.removeChild(n);
+            return;
         }
-        parent.insertBefore(
-            document.createTextNode(n.textContent!.slice(currentIndex)),
-            n
-        );
-        parent.removeChild(n);
     }
 
     if (n.hasChildNodes()) {
@@ -344,48 +372,54 @@ function parseForQty(n: Node, qtyScaleStore: Writable<Fraction>) {
 
 function parseComponentQuantities(
     c: ParsedRecipeComponent,
-    qtyScaleStore: Writable<Fraction>
+    qtyScaleStore: Writable<Fraction>,
+    isIngredient = false
 ) {
-    switch (c.type) {
-        case RecipeLeaf:
+    if (c.props.list) {
+        if (c.props.kind === "ol") {
             Array.from(
-                (c.props.childNodesOf as HTMLElement).querySelectorAll("[data-qty-parse]")
+                (c.props.list as HTMLElement).querySelectorAll("[data-qty-parse]")
             ).forEach((n) => parseForQty(n, qtyScaleStore));
-            break;
-
-        case SelectableStepList:
-            if (c.props.kind == "ol") {
-                Array.from(
-                    (c.props.list as HTMLElement).querySelectorAll("[data-qty-parse]")
-                ).forEach((n) => parseForQty(n, qtyScaleStore));
-            } else {
-                (c.props.list as Array<HTMLElement>).forEach((p) => {
-                    Array.from(p.querySelectorAll("[data-qty-parse]")).forEach((n) =>
-                        parseForQty(n, qtyScaleStore)
-                    );
-                });
-            }
-            break;
-
-        case CheckableIngredientList:
+        } else if (Array.isArray(c.props.list)) {
+            (c.props.list as Array<HTMLElement>).forEach((p) => {
+                Array.from(p.querySelectorAll("[data-qty-parse]")).forEach((n) =>
+                    parseForQty(n, qtyScaleStore)
+                );
+            });
+        } else {
             parseForQty(c.props.list as HTMLElement, qtyScaleStore);
-            break;
+        }
+        return;
+    }
 
-        default:
-            break;
+    if (c.props.childNodesOf) {
+        const childEl = c.props.childNodesOf as HTMLElement;
+        const isListElement =
+            Boolean(childEl) &&
+            (childEl.nodeName === "UL" ||
+                childEl.nodeName === "OL" ||
+                childEl.querySelector("li") != null);
+        if (isIngredient || isListElement) {
+            parseForQty(childEl, qtyScaleStore);
+        } else {
+            Array.from(
+                childEl.querySelectorAll("[data-qty-parse]")
+            ).forEach((n) => parseForQty(n, qtyScaleStore));
+        }
+        return;
     }
 }
 
 function injectQuantities(parsedRecipe: ParsedRecipe) {
     parsedRecipe.globalIngredients.forEach((c) =>
-        parseComponentQuantities(c, parsedRecipe.qtyScaleStore)
+        parseComponentQuantities(c, parsedRecipe.qtyScaleStore, true)
     );
     parsedRecipe.steps.forEach((step) => {
         step.stepIngredients.forEach((c) =>
-            parseComponentQuantities(c, parsedRecipe.qtyScaleStore)
+            parseComponentQuantities(c, parsedRecipe.qtyScaleStore, true)
         );
         step.mainComponents.forEach((c) =>
-            parseComponentQuantities(c, parsedRecipe.qtyScaleStore)
+            parseComponentQuantities(c, parsedRecipe.qtyScaleStore, false)
         );
     });
 }
@@ -800,6 +834,7 @@ export function buildUnifiedRecipeStructure(
                 if (nonCheckboxLis.length > 0) {
                     const normalUl = item.cloneNode(false) as HTMLElement;
                     nonCheckboxLis.forEach((li) => normalUl.appendChild(li));
+                    sanitizeIngredientListElement(normalUl, false);
                     globalIngredients.push({
                         type: RecipeLeaf,
                         props: { childNodesOf: normalUl, asTag: "ul" },

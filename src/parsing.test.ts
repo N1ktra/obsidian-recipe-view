@@ -7,6 +7,8 @@ import {
     isDirectionsHeaderElement,
     isIngredientsHeaderElement,
     isListItemWithCheckbox,
+    parseForQty,
+    injectQuantities,
     ParsedRecipe,
 } from './parsing';
 import { DEFAULT_SETTINGS } from './settings';
@@ -980,6 +982,124 @@ describe('requireCheckboxesForIngredients option', () => {
         expect(friesStep.stepTitle).toBe('Fries');
         // Header + paragraph instruction = 2 components
         expect(friesStep.mainComponents.length).toBe(2);
+    });
+
+    test('Quantity scaling applies to regular bullet point ingredients in globalIngredients and stepIngredients', () => {
+        const plugin = {
+            settings: {
+                ...DEFAULT_SETTINGS,
+                requireCheckboxesForIngredients: false,
+            },
+        } as any;
+
+        const container = document.createElement('div');
+        container.innerHTML = `
+            <h2>Zutaten</h2>
+            <ul>
+                <li>200 g Mehl</li>
+                <li>2 Eier</li>
+                <li>2 EL Olivenöl</li>
+            </ul>
+            <h2>Zubereitung</h2>
+            <h2>Schritt 1</h2>
+            <ul>
+                <li>100 ml Milch</li>
+                <li>1 TL Zucker</li>
+            </ul>
+            <p>Alles verrühren.</p>
+        `;
+
+        const qtyScaleStore = writable(new Fraction(1));
+        const result: ParsedRecipe = {
+            title: '',
+            thumbnailPath: '',
+            sections: [],
+            globalIngredients: [],
+            steps: [],
+            hasStepIngredients: false,
+            totalTimerMinutes: 0,
+            highlightIngredients: [],
+            renderedMarkdownParent: container,
+            qtyScaleStore,
+        };
+
+        buildUnifiedRecipeStructure(result, 'radio-scale-test', plugin);
+        injectQuantities(result);
+
+        // Global ingredients: check that data-qty spans are inserted
+        const globalUl = result.globalIngredients[1].props.list as HTMLElement;
+        const globalQtySpans = Array.from(globalUl.querySelectorAll('span[data-qty="true"]'));
+        expect(globalQtySpans.length).toBe(3);
+
+        // Step ingredients: check that data-qty spans are inserted
+        const step1 = result.steps[0];
+        const step1Ul = step1.stepIngredients[0].props.list as HTMLElement;
+        const step1QtySpans = Array.from(step1Ul.querySelectorAll('span[data-qty="true"]'));
+        expect(step1QtySpans.length).toBe(2);
+
+        // Now test reactive scaling by multiplying scale by 2
+        qtyScaleStore.set(new Fraction(2));
+
+        // Global quantities: 200g -> 400g, 2 -> 4, 2 EL -> 4 EL
+        const scaleNumbers = globalQtySpans.map((s) => s.querySelector('.scale-number')?.textContent?.trim());
+        expect(scaleNumbers).toContain('400');
+        expect(scaleNumbers).toContain('4');
+
+        // Step quantities: 100 ml -> 200 ml, 1 TL -> 2 TL
+        const stepScaleNumbers = step1QtySpans.map((s) => s.querySelector('.scale-number')?.textContent?.trim());
+        expect(stepScaleNumbers).toContain('200');
+        expect(stepScaleNumbers).toContain('2');
+    });
+
+    test('Quantity scaling applies to non-checkbox items in globalIngredients even when requireCheckboxesForIngredients is true', () => {
+        const plugin = {
+            settings: {
+                ...DEFAULT_SETTINGS,
+                requireCheckboxesForIngredients: true,
+            },
+        } as any;
+
+        const container = document.createElement('div');
+        container.innerHTML = `
+            <h2>Zutaten</h2>
+            <ul>
+                <li>200 g Mehl</li>
+                <li>2 Eier</li>
+            </ul>
+            <h2>Zubereitung</h2>
+            <h2>Schritt 1</h2>
+            <p>Verrühren.</p>
+        `;
+
+        const qtyScaleStore = writable(new Fraction(1));
+        const result: ParsedRecipe = {
+            title: '',
+            thumbnailPath: '',
+            sections: [],
+            globalIngredients: [],
+            steps: [],
+            hasStepIngredients: false,
+            totalTimerMinutes: 0,
+            highlightIngredients: [],
+            renderedMarkdownParent: container,
+            qtyScaleStore,
+        };
+
+        buildUnifiedRecipeStructure(result, 'radio-scale-require-checkboxes', plugin);
+        injectQuantities(result);
+
+        // Non-checkbox items under Zutaten are stored in RecipeLeaf (as normalUl)
+        expect(result.globalIngredients.length).toBe(2);
+        const leafComp = result.globalIngredients[1];
+        const normalUl = leafComp.props.childNodesOf as HTMLElement;
+        const qtySpans = Array.from(normalUl.querySelectorAll('span[data-qty="true"]'));
+        expect(qtySpans.length).toBe(2);
+
+        // Multiply scale by 3
+        qtyScaleStore.set(new Fraction(3));
+        const scaleNumbers = qtySpans.map((s) => s.querySelector('.scale-number')?.textContent?.trim());
+        expect(scaleNumbers).toContain('600');
+        expect(scaleNumbers).toContain('6');
     });
 });
 

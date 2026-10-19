@@ -22,7 +22,7 @@
 			value,
 			format,
 			scale,
-			plugin.settings.renderUnicodeFractions,
+			plugin?.settings?.renderUnicodeFractions ?? false,
 		)}</span
 	>{#if unit}
 		<span class="scale-unit">&nbsp;{unit}</span>{/if}</span

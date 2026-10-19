@@ -4,16 +4,27 @@ import Fraction from "fraction.js";
 export const NUMBER = new RegExp(/\d+(([\s-]+\d+)?\/\d+|\.\d+)?/)
 
 /** Matches a whole bunch of common units that you would want to scale in recipes */
-export const UNIT = new RegExp(/tb?sp?s?\.?|tablespoons?|teaspoons?|k?g|(kilo)?grams?|cups?|m?Ls?|millilit(re|er)s?|lit(re|er)s?|(fl.?|fluid)?\s+(oz\.?|ounces?)|pounds?|lbs?\.?|sticks?/i)
+export const UNIT = new RegExp(
+    /tb?sp?s?\.?|tablespoons?|teaspoons?|EL|TL|k?g|(kilo)?gram(m|s)?|cups?|m?Ls?|millilit(re|er)s?|lit(re|er)s?|cl|dl|mg|(fl.?|fluid)?\s+(oz\.?|ounces?)|pounds?|lbs?\.?|sticks?|prise[n]?|pinche?s?|dose[n]?|cans?|pck\.?|päckchen|packung(en)?|pkgs?\.?|packages?|stk\.?|stücke?|pieces?|zehe[n]?|cloves?|scheibe[n]?|slices?|gl(as|äser)|drops?|tropfen|schuss|zweige?|blätter|blatt/i
+);
 
 /** Matches a number followed by some whitespace and a unit */
-export const NUMBER_WITH_UNIT = new RegExp("(?<number>" + NUMBER.source + ")\\s*(?<unit>" + UNIT.source + ")\\b", "ig");
+export const NUMBER_WITH_UNIT = new RegExp(
+    "(?<number>" + NUMBER.source + ")\\s*(?<unit>" + UNIT.source + ")(?:\\b|(?<=\\.))",
+    "ig"
+);
 
-/** Matches a number at the start of a string by itself */
-export const START_NUMBER_ALONE = new RegExp("(?<startnumber>^" + NUMBER.source + ")\\b", "ig");
+/** Matches a number at the start of a string by itself (with optional leading whitespace) */
+export const START_NUMBER_ALONE = new RegExp(
+    "(?<=^\\s*)(?<startnumber>" + NUMBER.source + ")\\b",
+    "ig"
+);
 
 /** Matches either a number at the start of a string, or otherwise a number and unit */
-export const QUANTITY = new RegExp(NUMBER_WITH_UNIT.source + "|" + START_NUMBER_ALONE.source, "ig");
+export const QUANTITY = new RegExp(
+    NUMBER_WITH_UNIT.source + "|" + START_NUMBER_ALONE.source,
+    "ig"
+);
 
 export enum QtyFormatType {
     FRACTION,
@@ -62,11 +73,12 @@ export function reUnicodeFractions(str: string) {
  * specified) will be decimals.
  */
 function quantityStringsToValue(str: string, unit?: string) {
+    const cleanStr = str.trim().replace(/[-\s]+/g, " ");
     return {
-        value: new Fraction(str.replace(/[-\s]+/g, " ")),
-        format: (str.includes("/") ||
-            unit?.match(/tablespoons?|teaspoons?|tb?sp?s?\.?|cups?|sticks?/i) ||
-            (!unit && !str.includes(".")))
+        value: new Fraction(cleanStr),
+        format: (cleanStr.includes("/") ||
+            unit?.match(/tablespoons?|teaspoons?|tb?sp?s?\.?|cups?|sticks?|EL|TL/i) ||
+            (!unit && !cleanStr.includes(".")))
             ? QtyFormatType.FRACTION : QtyFormatType.DECIMAL,
     }
 }

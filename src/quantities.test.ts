@@ -200,6 +200,38 @@ describe('matching single quantities in strings', () => {
                 unit: null,
             }]);
     });
+    test('matches German EL and TL units', () => {
+        expect(matchQuantities("2 EL Olivenöl"))
+            .toStrictEqual([{
+                index: 0,
+                length: 4,
+                value: { value: new Fraction(2, 1), format: QtyFormatType.FRACTION },
+                unit: "EL",
+            }]);
+        expect(matchQuantities("1/2 TL Salz"))
+            .toStrictEqual([{
+                index: 0,
+                length: 6,
+                value: { value: new Fraction(1, 2), format: QtyFormatType.FRACTION },
+                unit: "TL",
+            }]);
+    });
+    test('matches quantity with leading whitespace', () => {
+        expect(matchQuantities("   2 Äpfel"))
+            .toStrictEqual([{
+                index: 3,
+                length: 1,
+                value: { value: new Fraction(2, 1), format: QtyFormatType.FRACTION },
+                unit: null,
+            }]);
+        expect(matchQuantities("\n  100 g Mehl"))
+            .toStrictEqual([{
+                index: 3,
+                length: 5,
+                value: { value: new Fraction(100, 1), format: QtyFormatType.DECIMAL },
+                unit: "g",
+            }]);
+    });
 });
 
 describe('matching multiple quantities in strings', () => {
