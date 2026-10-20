@@ -178,6 +178,27 @@ export function sanitizeIngredientListElement(
     return extractedIngredients;
 }
 
+/**
+ * Normalizes a regex pattern string that may contain multiple lines / line breaks from a multiline textarea.
+ */
+export function cleanRegexPattern(pattern: string): string {
+    const trimmed = pattern.trim();
+    if (!trimmed.includes("\n") && !trimmed.includes("\r")) {
+        return trimmed;
+    }
+    const lines = trimmed
+        .split(/\r?\n/)
+        .map((l) => l.trim())
+        .filter(Boolean);
+    if (lines.length === 0) {
+        return "";
+    }
+    if (trimmed.includes("|")) {
+        return lines.join(lines.some((l) => l.endsWith("|") || l.startsWith("|")) ? "" : "|");
+    }
+    return lines.join("|");
+}
+
 export function getDirectionsRegex(plugin?: RecipeViewPlugin): RegExp {
     const rawSetting =
         plugin?.settings?.directionsHeaderRegex ||
@@ -187,11 +208,15 @@ export function getDirectionsRegex(plugin?: RecipeViewPlugin): RegExp {
         return new RegExp((rawSetting as unknown as RegExp).source, "i");
     }
 
-    try {
-        return new RegExp(rawSetting, "i");
-    } catch {
-        return new RegExp(DEFAULT_DIRECTIONS_HEADER_REGEX, "i");
+    if (typeof rawSetting === "string" && rawSetting.trim()) {
+        try {
+            return new RegExp(cleanRegexPattern(rawSetting) || rawSetting.trim(), "i");
+        } catch {
+            return new RegExp(DEFAULT_DIRECTIONS_HEADER_REGEX, "i");
+        }
     }
+
+    return new RegExp(DEFAULT_DIRECTIONS_HEADER_REGEX, "i");
 }
 
 export function getIngredientsRegex(plugin?: RecipeViewPlugin): RegExp {
@@ -204,11 +229,15 @@ export function getIngredientsRegex(plugin?: RecipeViewPlugin): RegExp {
         return new RegExp((rawSetting as unknown as RegExp).source, "i");
     }
 
-    try {
-        return new RegExp(rawSetting, "i");
-    } catch {
-        return new RegExp(DEFAULT_INGREDIENTS_HEADER_REGEX, "i");
+    if (typeof rawSetting === "string" && rawSetting.trim()) {
+        try {
+            return new RegExp(cleanRegexPattern(rawSetting) || rawSetting.trim(), "i");
+        } catch {
+            return new RegExp(DEFAULT_INGREDIENTS_HEADER_REGEX, "i");
+        }
     }
+
+    return new RegExp(DEFAULT_INGREDIENTS_HEADER_REGEX, "i");
 }
 
 export function isDirectionsHeaderElement(

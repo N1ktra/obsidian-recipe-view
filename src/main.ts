@@ -19,6 +19,7 @@ import {
 	RecipeViewSettings,
 	RecipeViewPluginSettings,
 	DEFAULT_SETTINGS,
+	DEFAULT_TIMER_URL_TEMPLATE,
 } from './settings';
 import { RecipeViewSettingsTab } from './settingsTab';
 
@@ -28,6 +29,7 @@ export type {
 };
 export {
 	DEFAULT_SETTINGS,
+	DEFAULT_TIMER_URL_TEMPLATE,
 	RecipeViewSettingsTab,
 };
 
@@ -458,6 +460,13 @@ export default class RecipeViewPlugin extends Plugin {
 
 	async loadSettings() {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		if (
+			!this.settings.timerUrlTemplate?.trim() ||
+			this.settings.timerUrlTemplate ===
+				"shortcuts://run-shortcut?name=<SHORTCUT_NAME>&input=text&text=<MINUTEN>[|<URL_ENCODED_LABEL>]"
+		) {
+			this.settings.timerUrlTemplate = DEFAULT_TIMER_URL_TEMPLATE;
+		}
 	}
 
 	async saveSettings() {

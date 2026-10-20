@@ -16,7 +16,6 @@
 
 	let plugin: RecipeViewPlugin = get(store.plugin);
 	store.plugin.subscribe((p) => (plugin = p));
-	$: styleIngredientBox = plugin?.settings?.styleIngredientBox ?? true;
 
 	let wrapperEl: HTMLDivElement;
 	let selectedIndex: number | null = null;
@@ -131,7 +130,6 @@
 			<div class="top-sidebar-area">
 				<div
 					class="recipe-sidebar-card global-ingredients-card"
-					class:ingredient-box={styleIngredientBox}
 					class:has-global-ingredients={hasGlobalIngredients}
 				>
 					<slot name="scaleselector" />
@@ -350,7 +348,6 @@
 
 	/* Unified Sidebar Card (Scale recipe + Global ingredients) & Step ingredients card */
 	.recipe-sidebar-card,
-	.global-ingredients-card.ingredient-box,
 	.step-ingredients-card {
 		background-color: var(--background-secondary);
 		border: 1px solid var(--background-modifier-border);

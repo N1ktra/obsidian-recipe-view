@@ -220,11 +220,10 @@ tags:
 | **Frontmatter filter value** | `rezept` | Value required to trigger recipe view (case-insensitive, e.g. `rezept, recipe`). |
 | **Cover image property** | `cover` | Frontmatter property for the recipe hero/cover image. |
 | **Servings property** | `servings` | Frontmatter property for base servings (default: `1`). |
-| **Shortcut name** | `StartTimer` | iOS Shortcut name triggered by clicking `@timer{...}` buttons. |
-| **Custom URL template** | *(empty)* | Optional URL template for custom timer integration schemes. |
+| **Shortcut name** | `StartTimer` | iOS/macOS Shortcut name triggered by clicking `@timer{...}` buttons. |
+| **Shortcut URL template** | `shortcuts://run-shortcut?name=<SHORTCUT_NAME>&input=text&text=<MINUTES>[\|<LABEL>]` | URL scheme triggered when clicking a timer button. |
 | **Timer display format** | `de` | Duration display format (`de`, `en`, `compact`, `minutes`). |
-| **Side column regex** | `Ingredients\|Zutaten...` | Regex matching headings that should be pulled into the ingredient column. |
-| **Style ingredients as card box** | `true` | Render the side ingredients column with subtle card background and border. |
+| **Ingredients header regex** | `ingredients\|zutaten...` | Regex matching headings that should be pulled into the ingredient column. |
 | **Single-column max width** | `600px` | Viewport width below which the card switches to single-column layout. |
 
 Additional visual options are configurable via the [Style Settings](https://github.com/mgmeyers/obsidian-style-settings) plugin.

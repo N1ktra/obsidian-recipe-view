@@ -101,6 +101,28 @@ describe('building timer URLs', () => {
             )
         ).toBe('shortcuts://run-shortcut?name=My%20Timer&input=text&text=45');
     });
+
+    test('supports english placeholders <SHORTCUT_NAME>, <MINUTES>, and [|<LABEL>]', () => {
+        expect(
+            buildTimerUrl(
+                '30',
+                'Rest dough',
+                'StartTimer',
+                'shortcuts://run-shortcut?name=<SHORTCUT_NAME>&input=text&text=<MINUTES>[|<LABEL>]'
+            )
+        ).toBe(
+            'shortcuts://run-shortcut?name=StartTimer&input=text&text=30|Rest%20dough'
+        );
+
+        expect(
+            buildTimerUrl(
+                '15',
+                null,
+                'KitchenTimer',
+                'shortcuts://run-shortcut?name=<SHORTCUT_NAME>&input=text&text=<MINUTES>[|<LABEL>]'
+            )
+        ).toBe('shortcuts://run-shortcut?name=KitchenTimer&input=text&text=15');
+    });
 });
 
 describe('formatting timer button text & smart durations', () => {

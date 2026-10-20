@@ -29,6 +29,9 @@ export const DEFAULT_DIRECTIONS_HEADER_REGEX =
 export const DEFAULT_INGREDIENTS_HEADER_REGEX =
 	"ingredients|zutaten|nutrition|nährwerte";
 
+export const DEFAULT_TIMER_URL_TEMPLATE =
+	"shortcuts://run-shortcut?name=<SHORTCUT_NAME>&input=text&text=<MINUTES>[|<LABEL>]";
+
 export const DEFAULT_SETTINGS: RecipeViewSettings = {
 	directionsHeaderRegex: DEFAULT_DIRECTIONS_HEADER_REGEX,
 	ingredientsHeaderRegex: DEFAULT_INGREDIENTS_HEADER_REGEX,
@@ -41,7 +44,7 @@ export const DEFAULT_SETTINGS: RecipeViewSettings = {
 	coverProperty: "cover",
 	servingsProperty: "servings",
 	timerShortcutName: "StartTimer",
-	timerUrlTemplate: "",
+	timerUrlTemplate: DEFAULT_TIMER_URL_TEMPLATE,
 	timerTimeFormat: "de",
 	autoRenderReadingView: true,
 	autoSwitchToReadingMode: true,

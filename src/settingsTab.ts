@@ -4,7 +4,9 @@ import { TimerTimeFormat } from "./timers";
 import {
 	DEFAULT_DIRECTIONS_HEADER_REGEX,
 	DEFAULT_INGREDIENTS_HEADER_REGEX,
+	DEFAULT_TIMER_URL_TEMPLATE,
 } from "./settings";
+import { cleanRegexPattern } from "./domUtils";
 
 export class RecipeViewSettingsTab extends PluginSettingTab {
 	plugin: RecipeViewPlugin;
@@ -89,8 +91,9 @@ export class RecipeViewSettingsTab extends PluginSettingTab {
 			.setDesc(
 				"Regular expression to identify the directions / preparation heading (case-insensitive)."
 			)
-			.addText((text) =>
-				text
+			.setClass("recipe-view-setting-wide")
+			.addTextArea((textArea) => {
+				textArea
 					.setPlaceholder(DEFAULT_DIRECTIONS_HEADER_REGEX)
 					.setValue(
 						this.plugin.settings.directionsHeaderRegex ||
@@ -99,13 +102,27 @@ export class RecipeViewSettingsTab extends PluginSettingTab {
 					.onChange(async (value) => {
 						const trimmed = value.trim();
 						try {
-							new RegExp(trimmed, "i");
+							const pattern = cleanRegexPattern(trimmed);
+							new RegExp(pattern || trimmed, "i");
 							this.plugin.settings.directionsHeaderRegex = trimmed;
 						} catch {
 							this.plugin.settings.directionsHeaderRegex =
 								DEFAULT_DIRECTIONS_HEADER_REGEX;
 						}
 						await this.plugin.saveSettings();
+					});
+				textArea.inputEl.rows = 4;
+				textArea.inputEl.spellcheck = false;
+			})
+			.addExtraButton((btn) =>
+				btn
+					.setIcon("reset")
+					.setTooltip("Restore default directions regex")
+					.onClick(async () => {
+						this.plugin.settings.directionsHeaderRegex =
+							DEFAULT_DIRECTIONS_HEADER_REGEX;
+						await this.plugin.saveSettings();
+						this.display();
 					})
 			);
 
@@ -114,8 +131,9 @@ export class RecipeViewSettingsTab extends PluginSettingTab {
 			.setDesc(
 				"Regular expression to identify ingredients headings and subgroups (case-insensitive)."
 			)
-			.addText((text) =>
-				text
+			.setClass("recipe-view-setting-wide")
+			.addTextArea((textArea) => {
+				textArea
 					.setPlaceholder(DEFAULT_INGREDIENTS_HEADER_REGEX)
 					.setValue(
 						this.plugin.settings.ingredientsHeaderRegex ||
@@ -125,7 +143,8 @@ export class RecipeViewSettingsTab extends PluginSettingTab {
 					.onChange(async (value) => {
 						const trimmed = value.trim();
 						try {
-							new RegExp(trimmed, "i");
+							const pattern = cleanRegexPattern(trimmed);
+							new RegExp(pattern || trimmed, "i");
 							this.plugin.settings.ingredientsHeaderRegex = trimmed;
 							this.plugin.settings.sideColumnRegex = trimmed;
 						} catch {
@@ -135,6 +154,21 @@ export class RecipeViewSettingsTab extends PluginSettingTab {
 								DEFAULT_INGREDIENTS_HEADER_REGEX;
 						}
 						await this.plugin.saveSettings();
+					});
+				textArea.inputEl.rows = 4;
+				textArea.inputEl.spellcheck = false;
+			})
+			.addExtraButton((btn) =>
+				btn
+					.setIcon("reset")
+					.setTooltip("Restore default ingredients regex")
+					.onClick(async () => {
+						this.plugin.settings.ingredientsHeaderRegex =
+							DEFAULT_INGREDIENTS_HEADER_REGEX;
+						this.plugin.settings.sideColumnRegex =
+							DEFAULT_INGREDIENTS_HEADER_REGEX;
+						await this.plugin.saveSettings();
+						this.display();
 					})
 			);
 
@@ -204,15 +238,36 @@ export class RecipeViewSettingsTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName("iOS Shortcut timers (@timer{...})")
+			.setName("iOS / macOS Shortcut timers (@timer{...})")
 			.setDesc(
-				"Configure how inline @timer{minutes} and @timer{minutes|Label} buttons launch iOS Shortcuts."
+				createFragment((frag) => {
+					frag.appendText(
+						"Trigger kitchen timers in Apple Shortcuts directly from your recipe instructions. "
+					);
+					frag.createEl("br");
+					frag.appendText("Syntax: ");
+					frag.createEl("code", { text: "@timer{15}" });
+					frag.appendText(" or ");
+					frag.createEl("code", { text: "@timer{30|Rest dough}" });
+					frag.appendText(
+						" anywhere in recipe steps creates an interactive button like "
+					);
+					frag.createEl("span", {
+						text: "⏱ 30 min (Rest dough)",
+						cls: "recipe-timer-preview-badge",
+					});
+					frag.appendText(
+						" that launches your timer shortcut with duration and label pre-filled."
+					);
+				})
 			)
 			.setHeading();
 
 		new Setting(containerEl)
 			.setName("Shortcut name")
-			.setDesc("Name of the iOS Shortcut to trigger when clicking a timer button.")
+			.setDesc(
+				"The exact name of the shortcut in your Apple Shortcuts app (e.g. 'StartTimer'). This value replaces the <SHORTCUT_NAME> placeholder in the URL template below."
+			)
 			.addText((text) =>
 				text
 					.setPlaceholder("StartTimer")
@@ -225,19 +280,71 @@ export class RecipeViewSettingsTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName("Custom URL template (optional)")
+			.setName("Shortcut URL template")
 			.setDesc(
-				"Optional custom URL template. Placeholders: <SHORTCUT_NAME>, <MINUTEN>, <URL_ENCODED_LABEL>, [|<URL_ENCODED_LABEL>]. Leave empty to use the default iOS Shortcuts URL scheme."
+				createFragment((frag) => {
+					frag.appendText(
+						"URL scheme triggered when clicking a timer button. Placeholders are dynamically replaced with values from the timer tag:"
+					);
+					const ul = frag.createEl("ul", {
+						cls: "recipe-view-setting-desc-list",
+					});
+					const li1 = ul.createEl("li");
+					li1.createEl("code", { text: "<SHORTCUT_NAME>" });
+					li1.appendText(
+						": replaced with the Shortcut name configured above."
+					);
+
+					const li2 = ul.createEl("li");
+					li2.createEl("code", { text: "<MINUTES>" });
+					li2.appendText(
+						": exact numeric duration in minutes (e.g. 15, 90) parsed from @timer{...}."
+					);
+
+					const li3 = ul.createEl("li");
+					li3.createEl("code", { text: "[|<LABEL>]" });
+					li3.appendText(
+						": appends |Label if provided (e.g. @timer{30|Rest dough}), or omitted if no label is present."
+					);
+
+					const li4 = ul.createEl("li");
+					li4.createEl("code", { text: "<LABEL>" });
+					li4.appendText(
+						": URL-encoded label description (e.g. Rest%20dough)."
+					);
+
+					const note = frag.createEl("div", {
+						cls: "recipe-view-setting-desc-hint",
+					});
+					note.appendText(
+						"Your Apple Shortcut receives this text parameter as input to start the kitchen timer."
+					);
+				})
 			)
-			.addText((text) =>
-				text
-					.setPlaceholder(
-						"shortcuts://run-shortcut?name=<SHORTCUT_NAME>&input=text&text=<MINUTEN>[|<URL_ENCODED_LABEL>]"
+			.setClass("recipe-view-setting-wide")
+			.addTextArea((textArea) => {
+				textArea
+					.setPlaceholder(DEFAULT_TIMER_URL_TEMPLATE)
+					.setValue(
+						this.plugin.settings.timerUrlTemplate ||
+							DEFAULT_TIMER_URL_TEMPLATE
 					)
-					.setValue(this.plugin.settings.timerUrlTemplate)
 					.onChange(async (value) => {
-						this.plugin.settings.timerUrlTemplate = value;
+						this.plugin.settings.timerUrlTemplate = value.trim();
 						await this.plugin.saveSettings();
+					});
+				textArea.inputEl.rows = 2;
+				textArea.inputEl.spellcheck = false;
+			})
+			.addExtraButton((btn) =>
+				btn
+					.setIcon("reset")
+					.setTooltip("Restore default URL template")
+					.onClick(async () => {
+						this.plugin.settings.timerUrlTemplate =
+							DEFAULT_TIMER_URL_TEMPLATE;
+						await this.plugin.saveSettings();
+						this.display();
 					})
 			);
 
@@ -266,20 +373,6 @@ export class RecipeViewSettingsTab extends PluginSettingTab {
 			.setHeading();
 
 		new Setting(containerEl)
-			.setName("Style ingredients column as card box")
-			.setDesc(
-				"Render the side ingredients column with a subtle card background and rounded corners to visually separate it from the directions."
-			)
-			.addToggle((toggle) =>
-				toggle
-					.setValue(this.plugin.settings.styleIngredientBox)
-					.onChange(async (value) => {
-						this.plugin.settings.styleIngredientBox = value;
-						await this.plugin.saveSettings();
-					})
-			);
-
-		new Setting(containerEl)
 			.setName("Render fractions in quantities as unicode")
 			.setDesc(
 				'If on, fractions will appear like e.g. "½ cup". If off, they will appear like e.g. "1/2 cup".'
@@ -289,20 +382,6 @@ export class RecipeViewSettingsTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.renderUnicodeFractions)
 					.onChange(async (value) => {
 						this.plugin.settings.renderUnicodeFractions = value;
-						await this.plugin.saveSettings();
-					})
-			);
-
-		new Setting(containerEl)
-			.setName("Display ingredients in two-column view with bullets")
-			.setDesc(
-				"If turned on, will display bullets for all checkable ingredient lists – not just in single-column view."
-			)
-			.addToggle((toggle) =>
-				toggle
-					.setValue(this.plugin.settings.showBulletsTwoColumn)
-					.onChange(async (value) => {
-						this.plugin.settings.showBulletsTwoColumn = value;
 						await this.plugin.saveSettings();
 					})
 			);

@@ -158,11 +158,11 @@ export function buildTimerUrl(
     }
 
     return trimmedTemplate
-        .replace(/\[\|(?:<URL_ENCODED_LABEL>|\{label\})\]/gi, cleanLabel ? `|${encodedLabel}` : "")
-        .replace(/<SHORTCUT_NAME>|\{shortcut\}/gi, encodedShortcut)
-        .replace(/<MINUTEN>|\{minutes\}/gi, encodedMinutes)
-        .replace(/<URL_ENCODED_LABEL>|\{label\}/gi, encodedLabel)
-        .replace(/\{text\}/gi, textParam);
+        .replace(/\[\|(?:<LABEL>|<URL_ENCODED_LABEL>|\{label\})\]/gi, cleanLabel ? `|${encodedLabel}` : "")
+        .replace(/<SHORTCUT_NAME>|<SHORTCUT>|\{shortcut\}/gi, encodedShortcut)
+        .replace(/<MINUTES>|<MINUTEN>|\{minutes\}/gi, encodedMinutes)
+        .replace(/<LABEL>|<URL_ENCODED_LABEL>|\{label\}/gi, encodedLabel)
+        .replace(/<TEXT>|\{text\}/gi, textParam);
 }
 
 /**

@@ -579,6 +579,37 @@ describe('configurable header regex settings', () => {
         expect(getIngredientsRegex(invalidPlugin).test('Zutaten')).toBe(true);
     });
 
+    test('getDirectionsRegex and getIngredientsRegex support multiline textarea input formatting', () => {
+        const multilinePlugin = {
+            settings: {
+                directionsHeaderRegex: `
+                    directions|
+                    instructions|
+                    zubereitung|
+                    kochschritte
+                `,
+                ingredientsHeaderRegex: `
+                    zutaten
+                    materialien
+                    einkaufsliste
+                `,
+            },
+        } as any;
+
+        const dirRegex = getDirectionsRegex(multilinePlugin);
+        expect(dirRegex.test('Directions')).toBe(true);
+        expect(dirRegex.test('Instructions')).toBe(true);
+        expect(dirRegex.test('Zubereitung')).toBe(true);
+        expect(dirRegex.test('Kochschritte')).toBe(true);
+        expect(dirRegex.test('Unrelated')).toBe(false);
+
+        const ingRegex = getIngredientsRegex(multilinePlugin);
+        expect(ingRegex.test('Zutaten')).toBe(true);
+        expect(ingRegex.test('Materialien')).toBe(true);
+        expect(ingRegex.test('Einkaufsliste')).toBe(true);
+        expect(ingRegex.test('Unrelated')).toBe(false);
+    });
+
     test('buildUnifiedRecipeStructure respects custom directions and ingredients header regexes', () => {
         const customPlugin = {
             settings: {

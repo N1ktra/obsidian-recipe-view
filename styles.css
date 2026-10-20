@@ -475,4 +475,78 @@ iframe.thumbnail {
   height: auto !important;
   flex: 0 0 160px !important;
   flex-shrink: 0 !important;
-}
+}
+
+/* Settings tab: Multiline and wide inputs */
+.recipe-view-setting-wide {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 8px;
+}
+
+.recipe-view-setting-wide .setting-item-info {
+  width: 100%;
+}
+
+.recipe-view-setting-wide .setting-item-control {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.recipe-view-setting-wide textarea {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 75px;
+  resize: vertical;
+  font-family: var(--font-monospace);
+  font-size: var(--font-ui-smaller, 0.9em);
+  line-height: 1.45;
+  padding: 8px 10px;
+  border-radius: var(--radius-s, 4px);
+  box-sizing: border-box;
+}
+
+.recipe-view-setting-wide .clickable-icon {
+  margin-top: 6px;
+  flex-shrink: 0;
+}
+
+.recipe-view-setting-desc-list {
+  margin: 6px 0 6px 18px;
+  padding: 0;
+  font-size: var(--font-ui-smaller, 0.85em);
+  line-height: 1.45;
+}
+
+.recipe-view-setting-desc-list li {
+  margin-bottom: 3px;
+}
+
+.recipe-view-setting-desc-hint {
+  margin-top: 6px;
+  font-size: var(--font-ui-smaller, 0.85em);
+  color: var(--text-muted);
+}
+
+.recipe-timer-preview-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  margin: 0 2px;
+  border-radius: var(--radius-s, 4px);
+  background-color: hsla(
+    var(--accent-h),
+    var(--accent-s),
+    var(--accent-l),
+    0.15
+  );
+  border: 1px solid
+    hsla(var(--accent-h), var(--accent-s), var(--accent-l), 0.4);
+  color: var(--text-accent);
+  font-size: 0.85em;
+  font-weight: 500;
+}
+

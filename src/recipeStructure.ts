@@ -439,7 +439,7 @@ export function buildUnifiedRecipeStructure(
                         type: CheckableIngredientList,
                         props: {
                             list: ingUl,
-                            bullets: plugin?.settings?.showBulletsTwoColumn ?? false,
+                            bullets: false,
                         },
                         origIndex: i,
                     });
@@ -461,7 +461,7 @@ export function buildUnifiedRecipeStructure(
                     type: CheckableIngredientList,
                     props: {
                         list: item,
-                        bullets: plugin?.settings?.showBulletsTwoColumn ?? false,
+                        bullets: false,
                     },
                     origIndex: i,
                 });
@@ -626,7 +626,7 @@ export function buildUnifiedRecipeStructure(
                                 type: CheckableIngredientList,
                                 props: {
                                     list: ingUl,
-                                    bullets: plugin?.settings?.showBulletsTwoColumn ?? false,
+                                    bullets: false,
                                 },
                                 origIndex: i,
                             });
@@ -662,7 +662,7 @@ export function buildUnifiedRecipeStructure(
                             type: CheckableIngredientList,
                             props: {
                                 list: item,
-                                bullets: plugin?.settings?.showBulletsTwoColumn ?? false,
+                                bullets: false,
                             },
                             origIndex: i,
                         });
