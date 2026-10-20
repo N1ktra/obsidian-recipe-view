@@ -39,9 +39,17 @@ interface MountedReadingRecipe {
 	signature: string;
 }
 
+interface LeafRecipeState {
+	lastFilePath?: string;
+	wasRecipe?: boolean;
+	autoSwitched?: boolean;
+}
+
 export default class RecipeViewPlugin extends Plugin {
 	settings: RecipeViewPluginSettings = DEFAULT_SETTINGS;
 	private mountedReadingViews = new Map<MarkdownView, MountedReadingRecipe>();
+	private leafStates = new WeakMap<WorkspaceLeaf, LeafRecipeState>();
+	private lastActiveFileWasRecipe = false;
 
 	async onload() {
 		await this.loadSettings();
@@ -59,7 +67,7 @@ export default class RecipeViewPlugin extends Plugin {
 		this.registerEvent(
 			this.app.workspace.on("file-open", (file) => {
 				if (file) {
-					this.ensureReadingModeIfRecipe(file);
+					this.handleViewModeForFile(file);
 				}
 				this.updateAllReadingViews();
 			})
@@ -67,7 +75,7 @@ export default class RecipeViewPlugin extends Plugin {
 		this.registerEvent(
 			this.app.workspace.on("active-leaf-change", (leaf) => {
 				if (leaf?.view instanceof MarkdownView && leaf.view.file) {
-					this.ensureReadingModeIfRecipe(leaf.view.file, leaf);
+					this.handleViewModeForFile(leaf.view.file, leaf);
 				}
 				this.updateAllReadingViews();
 			})
@@ -86,10 +94,27 @@ export default class RecipeViewPlugin extends Plugin {
 		store.plugin.set(this);
 
 		this.app.workspace.onLayoutReady(() => {
+			this.app.workspace.iterateAllLeaves((leaf) => {
+				if (leaf.view instanceof MarkdownView && leaf.view.file) {
+					const file = leaf.view.file;
+					const metadata = this.app.metadataCache.getFileCache(file);
+					const isRecipe = isRecipeNote(
+						metadata?.frontmatter,
+						metadata?.headings,
+						this.settings
+					);
+					this.leafStates.set(leaf, {
+						lastFilePath: file.path,
+						wasRecipe: isRecipe,
+						autoSwitched: isRecipe,
+					});
+				}
+			});
+
 			const activeLeaf = this.app.workspace.getActiveViewOfType(MarkdownView)?.leaf;
 			const activeFile = this.app.workspace.getActiveFile();
 			if (activeLeaf && activeFile) {
-				this.ensureReadingModeIfRecipe(activeFile, activeLeaf);
+				this.handleViewModeForFile(activeFile, activeLeaf);
 			}
 			this.updateAllReadingViews();
 		});
@@ -113,13 +138,41 @@ export default class RecipeViewPlugin extends Plugin {
 		return false;
 	}
 
-	async ensureReadingModeIfRecipe(file: TFile, targetLeaf?: WorkspaceLeaf) {
-		const autoSwitch = this.settings.autoSwitchToReadingMode ?? true;
-		if (!this.settings.autoRenderReadingView || !autoSwitch) {
-			return;
+	getDefaultObsidianViewMode(): "source" | "preview" {
+		try {
+			const vault = this.app.vault as any;
+			const mode =
+				(typeof vault?.getConfig === "function" ? vault.getConfig("defaultViewMode") : undefined) ??
+				vault?.config?.defaultViewMode;
+			if (mode === "preview" || mode === "source") {
+				return mode;
+			}
+		} catch (_e) {
+			/* ignore */
+		}
+		return "source";
+	}
+
+	async restoreDefaultViewMode(leaf: WorkspaceLeaf, file: TFile): Promise<boolean> {
+		if (!(leaf.view instanceof MarkdownView) || leaf.view.file?.path !== file.path) {
+			return false;
 		}
 
-		// 1. Check cache first
+		const defaultMode = this.getDefaultObsidianViewMode();
+		if (leaf.view.getMode() !== defaultMode) {
+			await leaf.setViewState({
+				...leaf.getViewState(),
+				state: {
+					...leaf.getViewState().state,
+					mode: defaultMode,
+				},
+			});
+			return true;
+		}
+		return false;
+	}
+
+	async isRecipeFile(file: TFile): Promise<boolean> {
 		let metadata = this.app.metadataCache.getFileCache(file);
 		let isRecipe = isRecipeNote(
 			metadata?.frontmatter,
@@ -127,11 +180,9 @@ export default class RecipeViewPlugin extends Plugin {
 			this.settings
 		);
 
-		// 2. If not yet cached (e.g. freshly loaded file), read frontmatter directly
 		if (!isRecipe && (!metadata || !metadata.frontmatter)) {
 			try {
 				const content = await this.app.vault.cachedRead(file);
-				// Quick regex check for recipe frontmatter markers or ingredients headings
 				const hasRecipeFm = /(?:^|\n)(?:type:\s*(?:['"]?rezept['"]?|['"]?recipe['"]?)|recipe:\s*true|rezept:\s*true|servings:\s*\d+)/i.test(content);
 				const hasIngHeader = /(?:^|\n)#{1,6}\s*(?:ingredients|zutaten)\b/i.test(content);
 				if (hasRecipeFm || hasIngHeader) {
@@ -141,10 +192,16 @@ export default class RecipeViewPlugin extends Plugin {
 				/* ignore */
 			}
 		}
+		return isRecipe;
+	}
 
-		if (!isRecipe) {
+	async handleViewModeForFile(file: TFile, targetLeaf?: WorkspaceLeaf) {
+		const autoSwitch = this.settings.autoSwitchToReadingMode ?? true;
+		if (!this.settings.autoRenderReadingView || !autoSwitch) {
 			return;
 		}
+
+		const isRecipe = await this.isRecipeFile(file);
 
 		const findMatchingLeaves = (): Array<WorkspaceLeaf> => {
 			if (targetLeaf && targetLeaf.view instanceof MarkdownView && targetLeaf.view.file?.path === file.path) {
@@ -159,17 +216,48 @@ export default class RecipeViewPlugin extends Plugin {
 			return leaves;
 		};
 
-		// Immediate attempt: switch if leaf is already ready
-		for (const leaf of findMatchingLeaves()) {
-			void this.checkAndSwitchLeafToPreview(leaf, file);
-		}
+		const leaves = findMatchingLeaves();
 
-		// Secondary delayed attempt (handles mobile lifecycle / async leaf initialization)
-		window.setTimeout(() => {
-			for (const leaf of findMatchingLeaves()) {
+		for (const leaf of leaves) {
+			const prev = this.leafStates.get(leaf);
+
+			if (isRecipe) {
+				this.leafStates.set(leaf, {
+					lastFilePath: file.path,
+					wasRecipe: true,
+					autoSwitched: true,
+				});
+				this.lastActiveFileWasRecipe = true;
+
 				void this.checkAndSwitchLeafToPreview(leaf, file);
+				window.setTimeout(() => {
+					void this.checkAndSwitchLeafToPreview(leaf, file);
+				}, 120);
+			} else {
+				const cameFromRecipe =
+					prev?.wasRecipe === true ||
+					prev?.autoSwitched === true ||
+					(this.lastActiveFileWasRecipe && (!prev || prev.lastFilePath !== file.path));
+
+				this.leafStates.set(leaf, {
+					lastFilePath: file.path,
+					wasRecipe: false,
+					autoSwitched: false,
+				});
+				this.lastActiveFileWasRecipe = false;
+
+				if (cameFromRecipe) {
+					void this.restoreDefaultViewMode(leaf, file);
+					window.setTimeout(() => {
+						void this.restoreDefaultViewMode(leaf, file);
+					}, 120);
+				}
 			}
-		}, 120);
+		}
+	}
+
+	async ensureReadingModeIfRecipe(file: TFile, targetLeaf?: WorkspaceLeaf) {
+		return this.handleViewModeForFile(file, targetLeaf);
 	}
 
 	onunload() {

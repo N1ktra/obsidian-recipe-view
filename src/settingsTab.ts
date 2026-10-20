@@ -38,7 +38,7 @@ export class RecipeViewSettingsTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName("Automatically switch to Reading View for recipes")
 			.setDesc(
-				"When opening a note that is recognized as a recipe, automatically switch the pane to Reading View (on both Desktop and Mobile)."
+				"When opening a note that is recognized as a recipe, automatically switch the pane to Reading View (and restore your vault's default view mode when switching to a non-recipe note)."
 			)
 			.addToggle((toggle) =>
 				toggle
