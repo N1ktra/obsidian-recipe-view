@@ -4,7 +4,7 @@
 	"version": "0.4.0",
 	"minAppVersion": "0.15.0",
 	"description": "View your notes as interactive recipe cards while you cook, with frontmatter cover images, servings scaling, and iOS Shortcut timers.",
-	"author": "N1ktra (Fork of lachholden)",
+	"author": "N1ktra",
 	"authorUrl": "https://github.com/N1ktra/obsidian-recipe-view",
 	"isDesktopOnly": false
 }
