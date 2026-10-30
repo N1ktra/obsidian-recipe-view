@@ -14,7 +14,12 @@ import RecipeCard from './components/RecipeCard.svelte';
 import { parseRecipeMarkdown } from './parsing';
 import { isRecipeNote } from './detection';
 import store from './store';
-import { parseForTimers, TimerTimeFormat } from './timers';
+import {
+	parseForTimers,
+	TimerTimeFormat,
+	getEffectiveTimeFormat,
+	resolveLanguage,
+} from './timers';
 import {
 	RecipeViewSettings,
 	RecipeViewPluginSettings,
@@ -459,7 +464,8 @@ export default class RecipeViewPlugin extends Plugin {
 	}
 
 	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		const loadedData = (await this.loadData()) || {};
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, loadedData);
 		if (
 			!this.settings.timerUrlTemplate?.trim() ||
 			this.settings.timerUrlTemplate ===
@@ -467,9 +473,39 @@ export default class RecipeViewPlugin extends Plugin {
 		) {
 			this.settings.timerUrlTemplate = DEFAULT_TIMER_URL_TEMPLATE;
 		}
+
+		// Backward compatibility: migrate legacy timerTimeFormat if language / timeFormatStyle not explicitly saved
+		if (
+			loadedData.timerTimeFormat &&
+			!loadedData.language &&
+			!loadedData.timeFormatStyle
+		) {
+			if (loadedData.timerTimeFormat === "de") {
+				this.settings.language = "de";
+				this.settings.timeFormatStyle = "standard";
+			} else if (loadedData.timerTimeFormat === "en") {
+				this.settings.language = "en";
+				this.settings.timeFormatStyle = "standard";
+			} else if (loadedData.timerTimeFormat === "compact") {
+				this.settings.language = "auto";
+				this.settings.timeFormatStyle = "compact";
+			} else if (loadedData.timerTimeFormat === "minutes") {
+				this.settings.language = "auto";
+				this.settings.timeFormatStyle = "minutes";
+			}
+		}
+
+		this.settings.timerTimeFormat = getEffectiveTimeFormat(
+			this.settings.timeFormatStyle,
+			resolveLanguage(this.settings.language)
+		);
 	}
 
 	async saveSettings() {
+		this.settings.timerTimeFormat = getEffectiveTimeFormat(
+			this.settings.timeFormatStyle,
+			resolveLanguage(this.settings.language)
+		);
 		await this.saveData(this.settings);
 		this.updateAllReadingViews();
 	}

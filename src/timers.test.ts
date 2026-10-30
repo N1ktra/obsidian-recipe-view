@@ -12,6 +12,10 @@ import {
     parseFrontmatterTimeMinutes,
     calculateTotalTimerMinutes,
     formatDuration,
+    isGermanLocale,
+    resolveLanguage,
+    getEffectiveTimeFormat,
+    getEffectiveTimerFormat,
     highlightIngredientsInDom,
 } from './timers';
 
@@ -187,6 +191,116 @@ note: "@timer{999}"
         expect(formatDuration(60)).toBe('1 Std.');
         expect(formatDuration(75)).toBe('1 Std. 15 Min');
         expect(formatDuration(75, 'en')).toBe('1 hr 15 min');
+    });
+
+    test('isGermanLocale respects explicit setting over environment locale', () => {
+        const anyGlobal = globalThis as any;
+        const origMoment = anyGlobal.moment;
+        const origLocalStorage = anyGlobal.localStorage;
+
+        try {
+            // Environment is English
+            anyGlobal.moment = { locale: () => 'en' };
+            anyGlobal.localStorage = { getItem: () => 'en' };
+
+            // When user set "de", it MUST return true (German) regardless of English OS/Obsidian
+            expect(isGermanLocale('de')).toBe(true);
+
+            // Environment is German
+            anyGlobal.moment = { locale: () => 'de' };
+            anyGlobal.localStorage = { getItem: () => 'de' };
+
+            // When user set "en", it MUST return false (English) regardless of German OS/Obsidian
+            expect(isGermanLocale('en')).toBe(false);
+
+            // For compact or minutes, it falls back to environment locale
+            anyGlobal.moment = { locale: () => 'de-DE' };
+            expect(isGermanLocale('compact')).toBe(true);
+
+            anyGlobal.moment = { locale: () => 'en-US' };
+            expect(isGermanLocale('compact')).toBe(false);
+
+            // Fallback when navigator is German
+            delete anyGlobal.moment;
+            delete anyGlobal.localStorage;
+            const origNavigator = anyGlobal.navigator;
+            Object.defineProperty(anyGlobal, 'navigator', {
+                value: { language: 'de-DE' },
+                configurable: true,
+            });
+            expect(isGermanLocale()).toBe(true);
+
+            Object.defineProperty(anyGlobal, 'navigator', {
+                value: { language: 'en-US' },
+                configurable: true,
+            });
+            expect(isGermanLocale()).toBe(false);
+            Object.defineProperty(anyGlobal, 'navigator', {
+                value: origNavigator,
+                configurable: true,
+            });
+        } finally {
+            anyGlobal.moment = origMoment;
+            anyGlobal.localStorage = origLocalStorage;
+        }
+    });
+
+    test('resolveLanguage handles explicit de/en, legacy format, and auto detection', () => {
+        const anyGlobal = globalThis as any;
+        const origMoment = anyGlobal.moment;
+
+        try {
+            expect(resolveLanguage('de')).toBe('de');
+            expect(resolveLanguage('en')).toBe('en');
+
+            anyGlobal.moment = { locale: () => 'de-AT' };
+            expect(resolveLanguage('auto')).toBe('de');
+
+            anyGlobal.moment = { locale: () => 'en-GB' };
+            expect(resolveLanguage('auto')).toBe('en');
+
+            // Legacy format fallback
+            expect(resolveLanguage(undefined, 'de')).toBe('de');
+            expect(resolveLanguage(undefined, 'en')).toBe('en');
+        } finally {
+            anyGlobal.moment = origMoment;
+        }
+    });
+
+    test('getEffectiveTimeFormat and getEffectiveTimerFormat combine style and language', () => {
+        expect(getEffectiveTimeFormat('standard', 'de')).toBe('de');
+        expect(getEffectiveTimeFormat('standard', 'en')).toBe('en');
+        expect(getEffectiveTimeFormat('compact', 'de')).toBe('compact');
+        expect(getEffectiveTimeFormat('compact', 'en')).toBe('compact');
+        expect(getEffectiveTimeFormat('minutes', 'de')).toBe('minutes');
+        expect(getEffectiveTimeFormat('minutes', 'en')).toBe('minutes');
+
+        expect(
+            getEffectiveTimerFormat({
+                timerShortcutName: 'Timer',
+                timerUrlTemplate: '',
+                language: 'de',
+                timeFormatStyle: 'standard',
+            })
+        ).toBe('de');
+
+        expect(
+            getEffectiveTimerFormat({
+                timerShortcutName: 'Timer',
+                timerUrlTemplate: '',
+                language: 'en',
+                timeFormatStyle: 'standard',
+            })
+        ).toBe('en');
+
+        expect(
+            getEffectiveTimerFormat({
+                timerShortcutName: 'Timer',
+                timerUrlTemplate: '',
+                language: 'de',
+                timeFormatStyle: 'compact',
+            })
+        ).toBe('compact');
     });
 });
 

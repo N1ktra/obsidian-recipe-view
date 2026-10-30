@@ -1,6 +1,12 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
 import type RecipeViewPlugin from "./main";
-import { TimerTimeFormat } from "./timers";
+import {
+	TimerTimeFormat,
+	PluginLanguage,
+	TimeFormatStyle,
+	getEffectiveTimeFormat,
+	resolveLanguage,
+} from "./timers";
 import {
 	DEFAULT_DIRECTIONS_HEADER_REGEX,
 	DEFAULT_INGREDIENTS_HEADER_REGEX,
@@ -349,20 +355,47 @@ export class RecipeViewSettingsTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName("Timer display format")
+			.setName("Language")
 			.setDesc(
-				"Choose how durations >= 60 minutes are formatted on timer buttons (the iOS Shortcut always receives the exact numeric minutes)."
+				"Choose the language for recipe labels, time units, and buttons. 'Auto' follows Obsidian's active language."
 			)
 			.addDropdown((dropdown) =>
 				dropdown
-					.addOption("de", "Deutsch (30 Min / 1 Std. / 1 Std. 30 Min)")
-					.addOption("en", "English (30 min / 1 hr / 1 hr 30 min)")
-					.addOption("compact", "Compact (30m / 1h / 1h 30m)")
-					.addOption("minutes", "Minutes only (90 Min / 120 Min)")
-					.setValue(this.plugin.settings.timerTimeFormat)
+					.addOption("auto", "Auto (Obsidian language)")
+					.addOption("de", "Deutsch (German)")
+					.addOption("en", "English")
+					.setValue(this.plugin.settings.language || "auto")
 					.onChange(async (value) => {
-						this.plugin.settings.timerTimeFormat =
-							value as TimerTimeFormat;
+						this.plugin.settings.language = value as PluginLanguage;
+						this.plugin.settings.timerTimeFormat = getEffectiveTimeFormat(
+							this.plugin.settings.timeFormatStyle,
+							resolveLanguage(this.plugin.settings.language)
+						);
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(containerEl)
+			.setName("Time format")
+			.setDesc(
+				"Choose how durations are displayed on recipe cards and timer buttons."
+			)
+			.addDropdown((dropdown) =>
+				dropdown
+					.addOption(
+						"standard",
+						"Spelled out (1 Std. 30 Min / 1 hr 30 min)"
+					)
+					.addOption("compact", "Compact (1h 30m)")
+					.addOption("minutes", "Minutes only (90 Min)")
+					.setValue(this.plugin.settings.timeFormatStyle || "standard")
+					.onChange(async (value) => {
+						this.plugin.settings.timeFormatStyle =
+							value as TimeFormatStyle;
+						this.plugin.settings.timerTimeFormat = getEffectiveTimeFormat(
+							this.plugin.settings.timeFormatStyle,
+							resolveLanguage(this.plugin.settings.language)
+						);
 						await this.plugin.saveSettings();
 					})
 			);

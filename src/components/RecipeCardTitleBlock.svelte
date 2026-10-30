@@ -1,10 +1,14 @@
 <script lang="ts">
-	import { App, Component, MarkdownRenderer, TFile, moment } from "obsidian";
+	import { App, Component, MarkdownRenderer, TFile } from "obsidian";
 	import store from "../store";
 	import RecipeViewPlugin from "../main";
 	import { formatDuration, parseFrontmatterTimeMinutes } from "../parsing";
 	import { isVideoFileUrl, getVideoEmbedUrl } from "../media";
-	import { TimerTimeFormat } from "../timers";
+	import {
+		TimerTimeFormat,
+		getEffectiveTimeFormat,
+		resolveLanguage,
+	} from "../timers";
 
 	export let thumbnailPath: string | undefined;
 	export let title: string;
@@ -39,25 +43,6 @@
 	function focusInput(node: HTMLInputElement) {
 		node.focus();
 		node.select();
-	}
-
-	function isGermanLocale(configuredFormat?: string): boolean {
-		try {
-			const loc =
-				(typeof moment !== "undefined" &&
-				typeof moment.locale === "function"
-					? moment.locale()
-					: "") ||
-				(typeof window !== "undefined"
-					? window.localStorage?.getItem("language") || ""
-					: "");
-			if (loc) {
-				return loc.toLowerCase().startsWith("de");
-			}
-		} catch (_e) {
-			/* ignore */
-		}
-		return (configuredFormat || "de") === "de";
 	}
 
 	function findFrontmatterKey(
@@ -342,15 +327,18 @@
 	}
 
 	$: fmRecord = (frontmatter || {}) as Record<string, unknown>;
-	$: configuredTimeFormat = plugin?.settings?.timerTimeFormat || "de";
-	$: isDe = isGermanLocale(configuredTimeFormat);
-	$: timeFormat = (
-		configuredTimeFormat === "compact" || configuredTimeFormat === "minutes"
-			? configuredTimeFormat
-			: isDe
-			? "de"
-			: "en"
-	) as TimerTimeFormat;
+	$: configuredLanguage = plugin?.settings?.language || "auto";
+	$: configuredTimeFormatStyle = plugin?.settings?.timeFormatStyle || "standard";
+	$: resolvedLanguage = resolveLanguage(
+		configuredLanguage,
+		plugin?.settings?.timerTimeFormat
+	);
+	$: isDe = resolvedLanguage === "de";
+	$: timeFormat = getEffectiveTimeFormat(
+		configuredTimeFormatStyle,
+		resolvedLanguage,
+		plugin?.settings?.timerTimeFormat
+	);
 
 	$: coverKey = (
 		(plugin?.settings?.coverProperty || "cover").trim() || "cover"

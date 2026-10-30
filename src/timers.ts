@@ -1,6 +1,8 @@
 export const TIMER_REGEX = /@timer\{\s*([^}|]+?)\s*(?:\|\s*([^}]+?)\s*)?\}/g;
 
 export type TimerTimeFormat = "de" | "en" | "compact" | "minutes";
+export type PluginLanguage = "auto" | "de" | "en";
+export type TimeFormatStyle = "standard" | "compact" | "minutes";
 
 export interface TimerMatch {
     index: number;
@@ -13,6 +15,8 @@ export interface TimerSettings {
     timerShortcutName: string;
     timerUrlTemplate: string;
     timerTimeFormat?: TimerTimeFormat;
+    language?: PluginLanguage;
+    timeFormatStyle?: TimeFormatStyle;
 }
 
 /**
@@ -128,6 +132,102 @@ export function formatDuration(
         ? String(minutes)
         : String(Number(minutes.toFixed(1)));
     return formatDurationText(cleanNum, format);
+}
+
+/**
+ * Detect the active environment/Obsidian language.
+ * Checks moment.locale(), localStorage('language'), and navigator.language.
+ * Defaults to "de" if no environment info is available.
+ */
+export function detectEnvironmentLanguage(): "de" | "en" {
+    try {
+        const anyGlobal = (typeof window !== "undefined" ? window : globalThis) as Record<string, unknown>;
+        const momentFn = anyGlobal["moment"] as { locale?: () => string } | undefined;
+        const loc =
+            (momentFn && typeof momentFn.locale === "function"
+                ? momentFn.locale()
+                : "") ||
+            (typeof (anyGlobal["localStorage"] as Storage | undefined)?.getItem === "function"
+                ? (anyGlobal["localStorage"] as Storage).getItem("language") || ""
+                : "") ||
+            (typeof navigator !== "undefined" ? navigator.language || "" : "");
+        if (loc) {
+            return loc.toLowerCase().startsWith("de") ? "de" : "en";
+        }
+    } catch (_e) {
+        /* ignore */
+    }
+    return "de";
+}
+
+/**
+ * Resolve the effective language ("de" | "en") based on setting and environment.
+ */
+export function resolveLanguage(
+    configuredLanguage?: PluginLanguage | string,
+    legacyFormat?: TimerTimeFormat | string
+): "de" | "en" {
+    if (configuredLanguage === "de") {
+        return "de";
+    }
+    if (configuredLanguage === "en") {
+        return "en";
+    }
+    if (!configuredLanguage && legacyFormat === "de") {
+        return "de";
+    }
+    if (!configuredLanguage && legacyFormat === "en") {
+        return "en";
+    }
+    return detectEnvironmentLanguage();
+}
+
+/**
+ * Check whether German locale / conventions should be used.
+ * Kept for full backward compatibility.
+ */
+export function isGermanLocale(
+    configuredLanguage?: PluginLanguage | string,
+    legacyFormat?: TimerTimeFormat | string
+): boolean {
+    return resolveLanguage(configuredLanguage, legacyFormat) === "de";
+}
+
+/**
+ * Compute the effective timer formatting token ("de" | "en" | "compact" | "minutes").
+ */
+export function getEffectiveTimeFormat(
+    style?: TimeFormatStyle | string,
+    resolvedLang: "de" | "en" = "de",
+    legacyFormat?: TimerTimeFormat | string
+): TimerTimeFormat {
+    if (style === "compact") {
+        return "compact";
+    }
+    if (style === "minutes") {
+        return "minutes";
+    }
+    if (style === "standard") {
+        return resolvedLang;
+    }
+    if (legacyFormat === "compact" || legacyFormat === "minutes") {
+        return legacyFormat;
+    }
+    if (legacyFormat === "de" || legacyFormat === "en") {
+        return legacyFormat;
+    }
+    return resolvedLang;
+}
+
+/**
+ * Compute the effective timer format from a TimerSettings object.
+ */
+export function getEffectiveTimerFormat(settings: TimerSettings): TimerTimeFormat {
+    if (settings.timeFormatStyle) {
+        const lang = resolveLanguage(settings.language, settings.timerTimeFormat);
+        return getEffectiveTimeFormat(settings.timeFormatStyle, lang, settings.timerTimeFormat);
+    }
+    return settings.timerTimeFormat || "de";
 }
 
 /**
@@ -304,7 +404,7 @@ export function parseForTimers(node: Node, settings: TimerSettings): number {
             const buttonText = formatTimerButtonText(
                 match.minutes,
                 match.label,
-                settings.timerTimeFormat || "de"
+                getEffectiveTimerFormat(settings)
             );
 
             const timerLink = document.createElement("a");

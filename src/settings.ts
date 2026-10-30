@@ -1,4 +1,6 @@
-import { TimerTimeFormat } from "./timers";
+import { TimerTimeFormat, PluginLanguage, TimeFormatStyle } from "./timers";
+
+export type { PluginLanguage, TimeFormatStyle };
 
 export interface RecipeViewSettings {
 	directionsHeaderRegex: string;
@@ -13,6 +15,8 @@ export interface RecipeViewSettings {
 	servingsProperty: string;
 	timerShortcutName: string;
 	timerUrlTemplate: string;
+	language: PluginLanguage;
+	timeFormatStyle: TimeFormatStyle;
 	timerTimeFormat: TimerTimeFormat;
 	autoRenderReadingView: boolean;
 	autoSwitchToReadingMode: boolean;
@@ -45,6 +49,8 @@ export const DEFAULT_SETTINGS: RecipeViewSettings = {
 	servingsProperty: "servings",
 	timerShortcutName: "StartTimer",
 	timerUrlTemplate: DEFAULT_TIMER_URL_TEMPLATE,
+	language: "auto",
+	timeFormatStyle: "standard",
 	timerTimeFormat: "de",
 	autoRenderReadingView: true,
 	autoSwitchToReadingMode: true,
