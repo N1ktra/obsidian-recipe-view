@@ -1248,6 +1248,103 @@ describe('requireCheckboxesForIngredients option', () => {
         expect(result.steps[1].stepNumber).toBe(2);
     });
 
+    test('extracts introductory paragraph with links and link widgets preserving DOM elements in descriptionElements', () => {
+        const plugin = { settings: { ...DEFAULT_SETTINGS } } as any;
+        const container = document.createElement('div');
+        container.innerHTML = `
+            <p>Intro text with <span class="custom-pill" role="link" data-url="https://example.com">Example</span> and <a class="external-link" href="https://other.com">Other</a>.</p>
+            <div class="custom-card" role="link" data-url="https://card.com">Card Link</div>
+            <h2>Zutaten</h2>
+            <ul>
+                <li>100 g Mehl</li>
+            </ul>
+        `;
+
+        const result: ParsedRecipe = {
+            title: '',
+            thumbnailPath: '',
+            sections: [],
+            globalIngredients: [],
+            steps: [],
+            hasStepIngredients: false,
+            totalTimerMinutes: 0,
+            highlightIngredients: [],
+            renderedMarkdownParent: container,
+            qtyScaleStore: writable(new Fraction(1)),
+        };
+
+        buildUnifiedRecipeStructure(result, 'test-description-dom', plugin);
+
+        expect(result.descriptionElements).toBeDefined();
+        expect(result.descriptionElements?.length).toBe(2);
+        expect(result.descriptionElements?.[0].querySelector('[role="link"]')).not.toBeNull();
+        expect(result.descriptionElements?.[1].getAttribute('role')).toBe('link');
+    });
+
+    test('does NOT use link favicon or mid-text image as cover; only standalone media at the very top is cover', () => {
+        const plugin = { settings: { ...DEFAULT_SETTINGS } } as any;
+        const container = document.createElement('div');
+        container.innerHTML = `
+            <p>Hier ist ein Einleitungstext vor den Links und Medien.</p>
+            <p><a href="https://example.com" class="external-link"><img src="https://example.com/favicon.ico">Link</a></p>
+            <p><img src="app://obsidian.md/middle-image.png"></p>
+            <h2>Zutaten</h2>
+            <ul>
+                <li>100 g Mehl</li>
+            </ul>
+        `;
+
+        const result: ParsedRecipe = {
+            title: '',
+            thumbnailPath: '',
+            sections: [],
+            globalIngredients: [],
+            steps: [],
+            hasStepIngredients: false,
+            totalTimerMinutes: 0,
+            highlightIngredients: [],
+            renderedMarkdownParent: container,
+            qtyScaleStore: writable(new Fraction(1)),
+        };
+
+        buildUnifiedRecipeStructure(result, 'test-no-favicon-cover', plugin);
+
+        // Neither the favicon nor the image after text should be picked as cover
+        expect(result.thumbnailPath).toBe('');
+        // Both elements remain preserved in descriptionElements
+        expect(result.descriptionElements?.length).toBe(3);
+    });
+
+    test('picks image as cover when it stands alone at the very top of the note', () => {
+        const plugin = { settings: { ...DEFAULT_SETTINGS } } as any;
+        const container = document.createElement('div');
+        container.innerHTML = `
+            <p><img src="app://obsidian.md/top-cover.png"></p>
+            <p>Danach folgt der Text.</p>
+            <h2>Zutaten</h2>
+            <ul>
+                <li>100 g Mehl</li>
+            </ul>
+        `;
+
+        const result: ParsedRecipe = {
+            title: '',
+            thumbnailPath: '',
+            sections: [],
+            globalIngredients: [],
+            steps: [],
+            hasStepIngredients: false,
+            totalTimerMinutes: 0,
+            highlightIngredients: [],
+            renderedMarkdownParent: container,
+            qtyScaleStore: writable(new Fraction(1)),
+        };
+
+        buildUnifiedRecipeStructure(result, 'test-top-standalone-cover', plugin);
+
+        expect(result.thumbnailPath).toBe('app://obsidian.md/top-cover.png');
+    });
+
     test('extracts introductory paragraph before Zubereitung when no ingredients header exists', () => {
         const plugin = { settings: { ...DEFAULT_SETTINGS } } as any;
         const container = document.createElement('div');

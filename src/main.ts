@@ -406,7 +406,7 @@ export default class RecipeViewPlugin extends Plugin {
 			globalSearch?.instance?.openGlobalSearch?.(`tag:${el.getAttr("href")}`);
 		});
 
-		const parsedRecipe = parseRecipeMarkdown(
+		const parsedRecipe = await parseRecipeMarkdown(
 			this,
 			text,
 			file.path,

@@ -51,18 +51,80 @@ interface RawStepBlock {
 }
 
 function elementHasMedia(element: HTMLElement): boolean {
+    if (element.closest("a, [role='link']")) {
+        return false;
+    }
     const tag = element.nodeName.toUpperCase();
     if (tag === "IMG" || tag === "VIDEO" || tag === "IFRAME") {
         return true;
     }
-    return (
-        element.getElementsByTagName("IMG").length > 0 ||
-        element.getElementsByTagName("VIDEO").length > 0 ||
-        element.getElementsByTagName("IFRAME").length > 0 ||
+    const mediaEls = Array.from(
         element.querySelectorAll(
-            ".internal-embed, .media-embed, .video-embed, .recipe-video-wrapper"
-        ).length > 0
-    );
+            "img, video, iframe, .internal-embed, .media-embed, .video-embed, .recipe-video-wrapper"
+        )
+    ).filter((el) => !el.closest("a, [role='link']"));
+    return mediaEls.length > 0;
+}
+
+function extractTopStandaloneCover(item: HTMLElement): string | null {
+    if (item.closest("a, [role='link']")) {
+        return null;
+    }
+
+    const tag = item.nodeName.toUpperCase();
+    if (tag === "IMG" || tag === "VIDEO" || tag === "IFRAME") {
+        return (item as HTMLImageElement | HTMLVideoElement | HTMLIFrameElement).getAttribute("src") || null;
+    }
+
+    if (item.matches && item.matches(".internal-embed[src], .media-embed[src], .recipe-video-wrapper")) {
+        const inner = item.querySelector("img, video, iframe");
+        return item.getAttribute("src") || inner?.getAttribute("src") || null;
+    }
+
+    const isCallout =
+        item.classList.contains("callout") ||
+        Boolean(item.querySelector(".callout"));
+
+    if (isCallout) {
+        const calloutEl = (item.classList.contains("callout")
+            ? item
+            : item.querySelector(".callout")) as HTMLElement || item;
+        const calloutMedia = Array.from(
+            calloutEl.querySelectorAll<HTMLElement>(
+                "img, video, iframe, .internal-embed[src], .media-embed[src], .recipe-video-wrapper"
+            )
+        ).filter((m) => !m.closest("a, [role='link']"));
+        if (calloutMedia.length === 0) return null;
+
+        const first = calloutMedia[0];
+        const innerMedia = first.matches("img, video, iframe") ? first : first.querySelector("img, video, iframe");
+        const src =
+            innerMedia?.getAttribute("src") ||
+            first.getAttribute("src") ||
+            "";
+        return src || null;
+    }
+
+    // Paragraph or generic block: must stand alone without surrounding text
+    const text = (item.textContent || "").trim();
+    if (!text) {
+        const media = Array.from(
+            item.querySelectorAll<HTMLElement>(
+                "img, video, iframe, .internal-embed[src], .media-embed[src], .recipe-video-wrapper"
+            )
+        ).filter((m) => !m.closest("a, [role='link']"));
+        if (media.length > 0) {
+            const first = media[0];
+            const innerMedia = first.matches("img, video, iframe") ? first : first.querySelector("img, video, iframe");
+            const src =
+                innerMedia?.getAttribute("src") ||
+                first.getAttribute("src") ||
+                "";
+            return src || null;
+        }
+    }
+
+    return null;
 }
 
 function removeThumbnailFromElement(
@@ -73,10 +135,11 @@ function removeThumbnailFromElement(
     const mediaEls: Array<HTMLElement> = [];
     const tag = element.nodeName.toUpperCase();
     if (
-        tag === "IMG" ||
+        (tag === "IMG" ||
         tag === "VIDEO" ||
         tag === "IFRAME" ||
-        (element.matches && element.matches(".internal-embed[src], .media-embed[src], .recipe-video-wrapper"))
+        (element.matches && element.matches(".internal-embed[src], .media-embed[src], .recipe-video-wrapper"))) &&
+        !element.closest("a, [role='link']")
     ) {
         mediaEls.push(element);
     }
@@ -85,7 +148,7 @@ function removeThumbnailFromElement(
             element.querySelectorAll<HTMLElement>(
                 "img, video, iframe, .internal-embed[src], .media-embed[src], .recipe-video-wrapper"
             )
-        )
+        ).filter((el) => !el.closest("a, [role='link']"))
     );
     for (const el of mediaEls) {
         const src =
@@ -151,6 +214,7 @@ export function buildUnifiedRecipeStructure(
     const globalItems: Array<HTMLElement> = [];
     const directionsItems: Array<HTMLElement> = [];
     const descriptionParagraphs: Array<string> = [];
+    const descriptionElements: Array<HTMLElement> = [];
 
     // Check optional H1 title extraction
     let startIndex = 0;
@@ -229,22 +293,11 @@ export function buildUnifiedRecipeStructure(
         const item = contentItems[i];
         const nodeName = item.nodeName;
 
-        // Check first thumbnail media (image, video, iframe, or internal embed) if no cover defined
-        if (!result.thumbnailPath && !inDirections && elementHasMedia(item)) {
-            const firstImg = item.nodeName === "IMG" ? (item as HTMLImageElement) : item.getElementsByTagName("IMG").item(0);
-            const firstVideo = item.nodeName === "VIDEO" ? (item as HTMLVideoElement) : item.getElementsByTagName("VIDEO").item(0);
-            const firstIframe = item.nodeName === "IFRAME" ? (item as HTMLIFrameElement) : item.getElementsByTagName("IFRAME").item(0);
-            const firstEmbed = (item.matches && item.matches(".internal-embed[src], .media-embed[src]"))
-                ? item
-                : item.querySelector(".internal-embed[src], .media-embed[src]");
-            if (firstImg) {
-                result.thumbnailPath = firstImg.getAttribute("src") || "";
-            } else if (firstVideo) {
-                result.thumbnailPath = firstVideo.getAttribute("src") || "";
-            } else if (firstIframe) {
-                result.thumbnailPath = firstIframe.getAttribute("src") || "";
-            } else if (firstEmbed) {
-                result.thumbnailPath = firstEmbed.getAttribute("src") || "";
+        // If no cover defined in frontmatter, only pick an image/video if it stands alone at the very top of the note (first content item)
+        if (!result.thumbnailPath && !inDirections && i === startIndex) {
+            const topCover = extractTopStandaloneCover(item);
+            if (topCover) {
+                result.thumbnailPath = topCover;
             }
         }
 
@@ -304,6 +357,7 @@ export function buildUnifiedRecipeStructure(
                 const html = item.outerHTML.trim();
                 if (html) {
                     descriptionParagraphs.push(html);
+                    descriptionElements.push(item);
                 }
                 continue;
             }
@@ -312,6 +366,7 @@ export function buildUnifiedRecipeStructure(
                 const text = item.innerHTML.trim();
                 if (text) {
                     descriptionParagraphs.push(text);
+                    descriptionElements.push(item);
                 }
                 continue;
             }
@@ -320,6 +375,7 @@ export function buildUnifiedRecipeStructure(
             const html = item.outerHTML.trim();
             if (html) {
                 descriptionParagraphs.push(html);
+                descriptionElements.push(item);
             }
             continue;
         }
@@ -418,6 +474,7 @@ export function buildUnifiedRecipeStructure(
             })
             .join("");
     }
+    result.descriptionElements = descriptionElements;
 
     // 2. Build Global Ingredients Components
     const globalIngredients: Array<ParsedRecipeComponent> = [];

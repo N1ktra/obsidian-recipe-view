@@ -95,6 +95,7 @@
 				return createEl("a", {
 					href: url.toString(),
 					text: url.host,
+					cls: "external-link",
 				}).outerHTML;
 			} catch (e) {
 				/* empty */

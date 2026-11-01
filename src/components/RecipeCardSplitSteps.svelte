@@ -7,12 +7,14 @@
 	import store from "../store";
 	import RecipeViewPlugin from "../main";
 	import { get } from "svelte/store";
+	import RecipeLeaf from "./RecipeLeaf.svelte";
 
 	export let globalIngredients: Array<ParsedRecipeComponent> = [];
 	export let steps: Array<ParsedRecipeStep> = [];
 	export let sections: Array<ParsedRecipeSection> = [];
 	export let singleColumn = false;
 	export let description: string = "";
+	export let descriptionElements: Array<HTMLElement> = [];
 
 	let plugin: RecipeViewPlugin = get(store.plugin);
 	store.plugin.subscribe((p) => (plugin = p));
@@ -34,8 +36,12 @@
 			: effectiveSteps.slice(0, firstStepWithIngIdx)
 		: [];
 
+	$: hasDescription =
+		(descriptionElements && descriptionElements.length > 0) ||
+		Boolean(effectiveDescription);
+
 	$: hasTopContent =
-		topRightSteps.length > 0 || Boolean(effectiveDescription);
+		topRightSteps.length > 0 || hasDescription;
 
 	$: bottomStepRows = hasGlobalIngredients
 		? firstStepWithIngIdx === -1
@@ -68,12 +74,11 @@
 		const target = e.target as HTMLElement | null;
 		if (!target) return;
 
-		// Do not hijack clicks on links, buttons (e.g. @timer{...}), video/iframe players or ingredient checkboxes
-		if (
-			target.closest(
-				"a, button, video, iframe, .recipe-embedded-video, .recipe-embedded-iframe, .recipe-video-wrapper, input[type='checkbox'], .task-list-item-checkbox, label.recipe-ingredient-label"
-			)
-		) {
+		// Do not hijack clicks on inner links, buttons (e.g. @timer{...}), video/iframe players or ingredient checkboxes
+		const interactive = target.closest(
+			"a, button, [role='link'], video, iframe, .recipe-embedded-video, .recipe-embedded-iframe, .recipe-video-wrapper, input, label"
+		);
+		if (interactive && interactive !== e.currentTarget) {
 			return;
 		}
 
@@ -145,11 +150,17 @@
 
 			{#if hasTopContent}
 				<div class="top-steps-area">
-					{#if effectiveDescription}
+					{#if hasDescription}
 						<div class="recipe-description-row">
 							<div class="recipe-description">
-								<!-- eslint-disable -->
-								{@html effectiveDescription}
+								{#if descriptionElements && descriptionElements.length > 0}
+									{#each descriptionElements as el}
+										<RecipeLeaf childNodesOf={el} asTag={el.nodeName.toLowerCase() === "p" && el.querySelector("div, video, iframe, [role='link']") ? "div" : el.nodeName.toLowerCase()} />
+									{/each}
+								{:else}
+									<!-- eslint-disable -->
+									{@html effectiveDescription}
+								{/if}
 							</div>
 						</div>
 					{/if}

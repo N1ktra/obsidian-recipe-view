@@ -367,6 +367,8 @@ export function processEmbeddedMedia(
     // 3. Process standalone links in paragraphs (<p><a href="video.mp4">...</a></p> or YouTube)
     const links = Array.from(container.querySelectorAll("a"));
     for (const a of links) {
+        if (a.closest("[role='link']")) continue;
+
         const href = (a.getAttribute("href") || "").trim();
         const embedUrl = getVideoEmbedUrl(href);
         const isVideoFile = isVideoFileUrl(href);

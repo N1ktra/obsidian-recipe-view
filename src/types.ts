@@ -26,6 +26,7 @@ export interface ParsedRecipeStep {
 export interface ParsedRecipe {
     title: string;
     description?: string;
+    descriptionElements?: Array<HTMLElement>;
     thumbnailPath: string;
     sections: Array<ParsedRecipeSection>;
     globalIngredients: Array<ParsedRecipeComponent>;

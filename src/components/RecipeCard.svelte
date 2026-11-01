@@ -282,6 +282,7 @@
 		sections={parsedRecipe?.sections || []}
 		singleColumn={Boolean(singleColumn)}
 		description={parsedRecipe?.description ?? ""}
+		descriptionElements={parsedRecipe?.descriptionElements ?? []}
 	>
 		<ScaleSelector
 			slot="scaleselector"

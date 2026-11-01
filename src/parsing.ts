@@ -95,13 +95,13 @@ export type {
     ParsedRecipeStep,
 };
 
-export function parseRecipeMarkdown(
+export async function parseRecipeMarkdown(
     plugin: RecipeViewPlugin,
     text: string,
     path: string,
     component: Component,
     metadata?: CachedMetadata | null
-): ParsedRecipe {
+): Promise<ParsedRecipe> {
     const frontmatterCover = resolveCoverImage(plugin, metadata?.frontmatter, path);
     const textTimerMinutes = calculateTotalTimerMinutes(text);
     const frontmatterDesc =
@@ -124,7 +124,7 @@ export function parseRecipeMarkdown(
     };
 
     const normalizedText = normalizeMarkdownStepListSpacing(text);
-    MarkdownRenderer.render(plugin.app, normalizedText, result.renderedMarkdownParent, path, component);
+    await MarkdownRenderer.render(plugin.app, normalizedText, result.renderedMarkdownParent, path, component);
 
     // Transform embedded video files, embeds, YouTube/Vimeo links into responsive video players
     processEmbeddedMedia(result.renderedMarkdownParent, plugin, path);
